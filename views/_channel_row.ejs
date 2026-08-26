@@ -25,11 +25,10 @@
               hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">🚫</button>
     </div>
   </div>
-  <% if (ch.VideoCodec || ch.AudioCodec || ch.URL) { %>
+  <% if (ch.VideoCodec || ch.AudioCodec) { %>
     <div class="small text-body-secondary mt-1">
       <% if (ch.VideoCodec) { %><span class="me-2">Video: <%= ch.VideoCodec %></span><% } %>
       <% if (ch.AudioCodec) { %><span class="me-2">Audio: <%= ch.AudioCodec %></span><% } %>
-      <% if (ch.URL) { %><a class="me-2" href="<%= ch.URL %>"><%= ch.URL %></a><% } %>
     </div>
   <% } %>
 </div>
