@@ -17,11 +17,11 @@
     <div class="btn-group btn-group-sm ms-auto" role="group">
       <button type="button" class="btn <%= ch.Favorite ? 'btn-warning' : 'btn-outline-warning' %>"
               title="<%= ch.Favorite ? 'Unfavorite' : 'Favorite' %>"
-              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= ch.Favorite ? '-' : '+' %>"
+              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Favorite ? '-' : '+') %>"
               hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">★</button>
       <button type="button" class="btn <%= ch.Enabled === 0 ? 'btn-info' : 'btn-outline-info' %>"
               title="<%= ch.Enabled === 0 ? 'Unhide' : 'Hide' %>"
-              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= ch.Enabled === 0 ? '-' : 'x' %>"
+              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Enabled === 0 ? '-' : 'x') %>"
               hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">🚫</button>
     </div>
   </div>
