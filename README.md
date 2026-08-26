@@ -5,8 +5,8 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 ## Features
 
 - **System Menu** (`/`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
-- **Channel Lineup** (`/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality, codec info, and direct stream URL. Toggle filters for Favorites, HD, and Show Hidden.
-- **Detect Channels** (`/scan`) — start or abort a channel scan, with live progress.
+- **Channel Lineup** (`/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality and codec info. Toggle filters for Favorites, HD, and Show Hidden, plus one-tap buttons to favorite or hide any channel (synced back to the device itself).
+- **Detect Channels** (`/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
 - **System Status** (`/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
 - **Light/dark mode** toggle in the navbar, remembered across visits.
 
