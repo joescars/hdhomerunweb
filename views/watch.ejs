@@ -9,7 +9,7 @@
   <video id="player" controls autoplay muted playsinline></video>
 </div>
 
-<div id="player-status" class="text-body-secondary small">Tuning&hellip; this can take up to 30-40 seconds on first play.</div>
+<div id="player-status" class="text-body-secondary small">Tuning&hellip; usually just a few seconds.</div>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
 <script>
@@ -18,8 +18,8 @@
     var video = document.getElementById('player');
     var status = document.getElementById('player-status');
     var src = '/stream/' + encodeURIComponent(channel) + '/stream.m3u8';
-    var POLL_INTERVAL_MS = 1500;
-    var MAX_WAIT_MS = 55000;
+    var POLL_INTERVAL_MS = 500;
+    var MAX_WAIT_MS = 30000;
 
     function setStatus(text) { status.textContent = text; }
 
