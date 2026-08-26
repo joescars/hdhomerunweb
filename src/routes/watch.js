@@ -36,6 +36,7 @@ router.post('/stream/:channel/start', (req, res) => {
 router.get('/stream/:channel/ready', (req, res) => {
   const { channel } = req.params;
   if (!CHANNEL_RE.test(channel)) return res.status(400).send('Invalid channel');
+  stream.touch(channel);
   res.json(stream.isReady(channel));
 });
 

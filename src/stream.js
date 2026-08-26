@@ -6,7 +6,7 @@ const os = require('os');
 const hdhr = require('./hdhomerun');
 
 const STREAM_ROOT = path.join(os.tmpdir(), 'hdhomerun-web-streams');
-const IDLE_TIMEOUT_MS = 60_000;
+const IDLE_TIMEOUT_MS = 20_000;
 const READY_TIMEOUT_MS = 50_000;
 
 const sessions = new Map();
@@ -131,6 +131,6 @@ setInterval(() => {
       stopSession(channel);
     }
   }
-}, 15_000).unref();
+}, 5_000).unref();
 
 module.exports = { ensureSession, start, isReady, touch, stopSession, channelDir };
