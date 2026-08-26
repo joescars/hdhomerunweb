@@ -1,0 +1,72 @@
+<%- include('_header', { title: channelName ? `Watch ${channelName}` : 'Watch' }) %>
+
+<h1 class="h4 mb-3">
+  <span class="badge text-bg-primary me-2"><%= channel %></span>
+  <%= channelName || 'Live' %>
+</h1>
+
+<div class="ratio ratio-16x9 bg-black rounded overflow-hidden mb-3">
+  <video id="player" controls autoplay muted playsinline></video>
+</div>
+
+<div id="player-status" class="text-body-secondary small">Tuning&hellip; this can take up to 30-40 seconds on first play.</div>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script>
+  (function () {
+    var channel = <%- JSON.stringify(channel) %>;
+    var video = document.getElementById('player');
+    var status = document.getElementById('player-status');
+    var src = '/stream/' + encodeURIComponent(channel) + '/stream.m3u8';
+    var POLL_INTERVAL_MS = 1500;
+    var MAX_WAIT_MS = 55000;
+
+    function setStatus(text) { status.textContent = text; }
+
+    function playHls() {
+      if (window.Hls && Hls.isSupported()) {
+        var hls = new Hls();
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () { setStatus('Live'); video.play(); });
+        hls.on(Hls.Events.ERROR, function (event, data) {
+          if (data.fatal) setStatus('Stream error: ' + data.details);
+        });
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = src;
+        video.addEventListener('loadedmetadata', function () { setStatus('Live'); video.play(); });
+      } else {
+        setStatus('Your browser does not support HLS playback.');
+      }
+    }
+
+    function pollUntilReady(startedAt) {
+      fetch('/stream/' + encodeURIComponent(channel) + '/ready')
+        .then(function (r) { return r.json(); })
+        .then(function (state) {
+          if (state.ready) {
+            playHls();
+            return;
+          }
+          if (state.failed) {
+            setStatus('Stream failed to start. It may be in use by another tuner, or the channel may be unavailable.');
+            return;
+          }
+          if (Date.now() - startedAt > MAX_WAIT_MS) {
+            setStatus('Timed out waiting for the stream to start.');
+            return;
+          }
+          setTimeout(function () { pollUntilReady(startedAt); }, POLL_INTERVAL_MS);
+        })
+        .catch(function () {
+          setTimeout(function () { pollUntilReady(startedAt); }, POLL_INTERVAL_MS);
+        });
+    }
+
+    fetch('/stream/' + encodeURIComponent(channel) + '/start', { method: 'POST' })
+      .then(function () { pollUntilReady(Date.now()); })
+      .catch(function () { setStatus('Could not reach the server to start the stream.'); });
+  })();
+</script>
+
+<%- include('_footer') %>
