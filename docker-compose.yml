@@ -8,3 +8,5 @@ services:
     environment:
       - HDHOMERUN_HOST=${HDHOMERUN_HOST}
       - HDHOMERUN_PORT=${HDHOMERUN_PORT:-80}
+    devices:
+      - /dev/dri:/dev/dri

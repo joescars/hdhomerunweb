@@ -1,0 +1,142 @@
+<%- include('_header', { title: 'TV Guide' }) %>
+
+<div class="d-flex align-items-center mb-3">
+  <h1 class="h4 mb-0 flex-grow-1">TV Guide</h1>
+  <a href="/guide" class="btn btn-outline-secondary btn-sm">List view</a>
+</div>
+
+<% if (error) { %>
+  <div class="alert alert-danger">Could not load guide data: <%= error %></div>
+<% } else if (!channels.length) { %>
+  <div class="alert alert-secondary">No guide data available.</div>
+<% } else { %>
+  <div class="guide-scroll">
+    <div class="guide-inner" id="guide-inner"></div>
+  </div>
+<% } %>
+
+<style>
+  .guide-scroll { overflow: auto; max-height: 75vh; border: 1px solid var(--bs-border-color); border-radius: 8px; -webkit-overflow-scrolling: touch; }
+  .guide-inner { position: relative; }
+  .guide-header-row { display: flex; position: sticky; top: 0; z-index: 3; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
+  .guide-header-spacer { position: sticky; left: 0; z-index: 4; width: 84px; flex: 0 0 84px; background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); font-weight: 600; font-size: .8rem; display: flex; align-items: center; padding: .5rem; }
+  .guide-header-track { position: relative; flex: 0 0 auto; height: 2.25rem; }
+  .guide-time-label { position: absolute; top: 0; height: 100%; display: flex; align-items: center; padding-left: .5rem; font-weight: 600; font-size: .85rem; border-left: 1px solid var(--bs-border-color); white-space: nowrap; }
+  .guide-row { display: flex; border-bottom: 1px solid var(--bs-border-color); }
+  .guide-channel-cell { position: sticky; left: 0; z-index: 2; width: 84px; flex: 0 0 84px; background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; padding: .35rem .2rem; cursor: pointer; text-align: center; }
+  .guide-channel-cell img { max-width: 100%; max-height: 22px; object-fit: contain; }
+  .guide-channel-number { font-size: .75rem; font-weight: 700; }
+  .guide-track { position: relative; flex: 0 0 auto; min-height: 4.5rem; }
+  .guide-block { position: absolute; top: 3px; bottom: 3px; overflow: hidden; border: 1px solid var(--bs-border-color); border-radius: 4px; padding: .3rem .45rem; background: var(--bs-tertiary-bg); font-size: .8rem; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
+  .guide-block:hover { filter: brightness(1.15); }
+  .guide-block.is-now { background: var(--bs-primary); color: #fff; border-color: var(--bs-primary); }
+  .guide-now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #dc3545; z-index: 5; pointer-events: none; }
+</style>
+
+<script>
+(function () {
+  var data = <%- JSON.stringify(channels) %>;
+  var now = <%= now %>;
+  var container = document.getElementById('guide-inner');
+  if (!container) return;
+
+  var PX_PER_MIN = 5;
+  var RANGE_MINUTES = 240;
+  var rangeStart = now - (now % 1800); // align to the current or previous 30-minute mark
+  var rangeEnd = rangeStart + RANGE_MINUTES * 60;
+  var trackWidth = RANGE_MINUTES * PX_PER_MIN;
+
+  function minutesFromStart(ts) {
+    return (ts - rangeStart) / 60;
+  }
+
+  function fmtTime(ts) {
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  var header = document.createElement('div');
+  header.className = 'guide-header-row';
+  var headerSpacer = document.createElement('div');
+  headerSpacer.className = 'guide-header-spacer';
+  headerSpacer.textContent = new Date(now * 1000).toLocaleDateString([], { weekday: 'long' });
+  header.appendChild(headerSpacer);
+
+  var headerTrack = document.createElement('div');
+  headerTrack.className = 'guide-header-track';
+  headerTrack.style.width = trackWidth + 'px';
+  for (var t = rangeStart; t < rangeEnd; t += 1800) {
+    var label = document.createElement('div');
+    label.className = 'guide-time-label';
+    label.style.left = (minutesFromStart(t) * PX_PER_MIN) + 'px';
+    label.style.width = (30 * PX_PER_MIN) + 'px';
+    label.textContent = fmtTime(t);
+    headerTrack.appendChild(label);
+  }
+  header.appendChild(headerTrack);
+  container.appendChild(header);
+
+  data.forEach(function (ch) {
+    var row = document.createElement('div');
+    row.className = 'guide-row';
+
+    var cell = document.createElement('div');
+    cell.className = 'guide-channel-cell';
+    cell.title = 'Watch ' + ch.GuideName;
+    cell.onclick = function () { window.location.href = '/watch/' + encodeURIComponent(ch.GuideNumber); };
+    var num = document.createElement('div');
+    num.className = 'guide-channel-number';
+    num.textContent = ch.GuideNumber + (ch.Favorite ? ' ★' : '');
+    cell.appendChild(num);
+    if (ch.ImageURL) {
+      var img = document.createElement('img');
+      img.src = ch.ImageURL;
+      img.alt = ch.GuideName;
+      img.loading = 'lazy';
+      cell.appendChild(img);
+    } else {
+      var name = document.createElement('div');
+      name.style.fontSize = '.7rem';
+      name.textContent = ch.GuideName;
+      cell.appendChild(name);
+    }
+    row.appendChild(cell);
+
+    var track = document.createElement('div');
+    track.className = 'guide-track';
+    track.style.width = trackWidth + 'px';
+
+    (ch.Guide || []).forEach(function (airing) {
+      if (airing.EndTime <= rangeStart || airing.StartTime >= rangeEnd) return;
+      var start = Math.max(airing.StartTime, rangeStart);
+      var end = Math.min(airing.EndTime, rangeEnd);
+      var left = minutesFromStart(start) * PX_PER_MIN;
+      var width = (end - start) / 60 * PX_PER_MIN;
+      var block = document.createElement('div');
+      block.className = 'guide-block' + (airing.StartTime <= now && now < airing.EndTime ? ' is-now' : '');
+      block.style.left = left + 'px';
+      block.style.width = Math.max(width - 2, 20) + 'px';
+      block.title = airing.Title + ' (' + fmtTime(airing.StartTime) + ' - ' + fmtTime(airing.EndTime) + ')';
+      block.textContent = airing.Title;
+      block.onclick = function () { window.location.href = '/watch/' + encodeURIComponent(ch.GuideNumber); };
+      track.appendChild(block);
+    });
+
+    row.appendChild(track);
+    container.appendChild(row);
+  });
+
+  var nowLine = document.createElement('div');
+  nowLine.className = 'guide-now-line';
+  nowLine.style.left = (84 + minutesFromStart(now) * PX_PER_MIN) + 'px';
+  container.style.position = 'relative';
+  container.appendChild(nowLine);
+
+  // Scroll the "now" line into view on load.
+  var scrollParent = container.closest('.guide-scroll');
+  if (scrollParent) {
+    scrollParent.scrollLeft = Math.max(0, minutesFromStart(now) * PX_PER_MIN - 60);
+  }
+})();
+</script>
+
+<%- include('_footer') %>

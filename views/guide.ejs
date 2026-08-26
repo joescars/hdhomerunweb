@@ -1,6 +1,9 @@
 <%- include('_header', { title: 'Guide' }) %>
 
-<h1 class="h4 mb-3">TV Guide</h1>
+<div class="d-flex align-items-center mb-3">
+  <h1 class="h4 mb-0 flex-grow-1">TV Guide</h1>
+  <a href="/guide/grid" class="btn btn-outline-secondary btn-sm">Grid view</a>
+</div>
 
 <% if (error) { %>
   <div class="alert alert-danger">Could not load guide data: <%= error %></div>
