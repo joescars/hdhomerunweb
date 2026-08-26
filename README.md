@@ -5,6 +5,7 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 ## Features
 
 - **System Menu** (`/`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
+- **TV Guide** (`/guide`) — live program guide per channel (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required.
 - **Channel Lineup** (`/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality and codec info. Toggle filters for Favorites, HD, and Show Hidden, plus one-tap buttons to favorite or hide any channel (synced back to the device itself).
 - **Detect Channels** (`/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
 - **System Status** (`/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
@@ -12,9 +13,9 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 
 ## Screenshots
 
-| Channel Lineup (dark) | System Status (light) |
+| TV Guide (dark) | System Status (light) |
 |---|---|
-| ![Channel Lineup, dark mode](docs/screenshot-dark.png) | ![System Status, light mode](docs/screenshot-light.png) |
+| ![TV Guide, dark mode](docs/screenshot-dark.png) | ![System Status, light mode](docs/screenshot-light.png) |
 
 ## Stack
 
@@ -22,6 +23,7 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 - [htmx](https://htmx.org/) for the small bits of live-updating UI (scan progress, tuner status)
 - [Bootstrap 5](https://getbootstrap.com/) for styling, loaded via CDN, with a light/dark theme toggle
 - Talks directly to your HDHomeRun's HTTP API (`discover.json`, `lineup.json`, `lineup.post`, `lineup_status.json`, `status.json`)
+- Talks to Silicondust's cloud Guide API (`api.hdhomerun.com`) for program guide data
 
 ## Running
 
