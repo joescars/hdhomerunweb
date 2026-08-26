@@ -1,0 +1,4 @@
+.menu-grid .card:hover,
+a.card:hover {
+  background-color: var(--bs-tertiary-bg);
+}

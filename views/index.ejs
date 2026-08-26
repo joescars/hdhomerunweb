@@ -1,0 +1,42 @@
+<%- include('_header', { title: 'Home' }) %>
+
+<h1 class="h4 mb-3">System Menu</h1>
+
+<% if (error) { %>
+  <div class="alert alert-danger">Could not reach device at <strong><%= host %></strong>: <%= error %></div>
+<% } else { %>
+  <div class="card bg-body-tertiary mb-3">
+    <div class="card-body">
+      <dl class="row mb-0 small">
+        <dt class="col-5 col-sm-4 text-body-secondary">Friendly Name</dt><dd class="col-7 col-sm-8"><%= device.FriendlyName %></dd>
+        <dt class="col-5 col-sm-4 text-body-secondary">Model</dt><dd class="col-7 col-sm-8"><%= device.ModelNumber %></dd>
+        <dt class="col-5 col-sm-4 text-body-secondary">Firmware</dt><dd class="col-7 col-sm-8"><%= device.FirmwareName %> <%= device.FirmwareVersion %></dd>
+        <dt class="col-5 col-sm-4 text-body-secondary">Device ID</dt><dd class="col-7 col-sm-8"><%= device.DeviceID %></dd>
+        <dt class="col-5 col-sm-4 text-body-secondary">Tuner Count</dt><dd class="col-7 col-sm-8"><%= device.TunerCount %></dd>
+      </dl>
+    </div>
+  </div>
+<% } %>
+
+<div class="row row-cols-3 g-2">
+  <div class="col">
+    <a class="card text-center text-decoration-none py-4" href="/channels">
+      <div class="fs-2">📺</div>
+      <div class="small mt-1">Channel Lineup</div>
+    </a>
+  </div>
+  <div class="col">
+    <a class="card text-center text-decoration-none py-4" href="/scan">
+      <div class="fs-2">🔍</div>
+      <div class="small mt-1">Detect Channels</div>
+    </a>
+  </div>
+  <div class="col">
+    <a class="card text-center text-decoration-none py-4" href="/status">
+      <div class="fs-2">📶</div>
+      <div class="small mt-1">System Status</div>
+    </a>
+  </div>
+</div>
+
+<%- include('_footer') %>

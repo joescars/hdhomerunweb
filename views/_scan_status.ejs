@@ -1,0 +1,30 @@
+<div id="scan-status"
+     <% if (status && status.ScanInProgress) { %>hx-get="/scan/status" hx-trigger="load delay:2s" hx-swap="outerHTML"<% } %>>
+  <% if (error) { %>
+    <div class="alert alert-danger">Could not read scan status: <%= error %></div>
+  <% } else if (!status) { %>
+    <div class="alert alert-secondary">No scan status available.</div>
+  <% } else if (status.ScanInProgress) { %>
+    <div class="card bg-body-tertiary">
+      <div class="card-body">
+        <p>Scanning&hellip; found <strong><%= status.Found || 0 %></strong> channel(s) so far.</p>
+        <div class="progress mb-3" role="progressbar">
+          <div class="progress-bar" style="width: <%= status.Progress || 0 %>%"></div>
+        </div>
+        <form hx-post="/scan/abort" hx-target="#scan-status" hx-swap="outerHTML">
+          <button type="submit" class="btn btn-outline-danger">Abort Scan</button>
+        </form>
+      </div>
+    </div>
+  <% } else { %>
+    <div class="card bg-body-tertiary">
+      <div class="card-body">
+        <p>No scan in progress.</p>
+        <% if (status.Found) { %><p><%= status.Found %> channel(s) found in last scan.</p><% } %>
+        <form hx-post="/scan/start" hx-target="#scan-status" hx-swap="outerHTML">
+          <button type="submit" class="btn btn-primary">Start Scan</button>
+        </form>
+      </div>
+    </div>
+  <% } %>
+</div>

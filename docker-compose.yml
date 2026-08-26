@@ -1,0 +1,13 @@
+services:
+  hdhomerun-web:
+    build: .
+    container_name: hdhomerun-web
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # hdhomerun.local (mDNS) does not resolve from inside a container on
+      # the default bridge network. Set this to your device's LAN IP instead
+      # (see README for how to find it).
+      - HDHOMERUN_HOST=192.168.1.100
+      - HDHOMERUN_PORT=80

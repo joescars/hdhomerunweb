@@ -1,0 +1,14 @@
+{
+  "name": "hdhomerun-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Mobile-friendly web UI for HDHomeRun tuners",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10",
+    "express": "^4.19.2"
+  }
+}

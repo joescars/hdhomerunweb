@@ -1,0 +1,82 @@
+<%- include('_header', { title: 'Channels' }) %>
+
+<h1 class="h4 mb-3">Channel Lineup</h1>
+
+<% if (error) { %>
+  <div class="alert alert-danger">Could not load channel lineup: <%= error %></div>
+<% } else if (!channels.length) { %>
+  <div class="alert alert-secondary">No channels found. Try running a <a href="/scan">channel scan</a>.</div>
+<% } else { %>
+  <div class="btn-group mb-3 flex-wrap" role="group" aria-label="Channel filters">
+    <input type="checkbox" class="btn-check" id="filter-favorites" autocomplete="off">
+    <label class="btn btn-outline-warning btn-sm" for="filter-favorites">★ Favorites</label>
+
+    <input type="checkbox" class="btn-check" id="filter-hd" autocomplete="off">
+    <label class="btn btn-outline-secondary btn-sm" for="filter-hd">HD</label>
+
+    <input type="checkbox" class="btn-check" id="filter-hidden" autocomplete="off">
+    <label class="btn btn-outline-info btn-sm" for="filter-hidden">Show Hidden</label>
+  </div>
+
+  <p class="text-body-secondary small" id="channel-count"><%= channels.length %> channel<%= channels.length === 1 ? '' : 's' %></p>
+
+  <div class="list-group" id="channel-list">
+    <% channels.forEach(function(ch) { %>
+      <div class="list-group-item channel-row"
+           data-favorite="<%= ch.Favorite ? 1 : 0 %>"
+           data-hd="<%= ch.HD ? 1 : 0 %>"
+           data-hidden="<%= ch.Enabled === 0 ? 1 : 0 %>">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge text-bg-primary" style="min-width: 3rem;"><%= ch.GuideNumber %></span>
+          <span class="flex-grow-1"><%= ch.GuideName %></span>
+          <% if (typeof ch.SignalStrength !== 'undefined') { %>
+            <span class="badge text-bg-dark border" title="Signal strength / quality">📶 <%= ch.SignalStrength %>% / <%= ch.SignalQuality %>%</span>
+          <% } %>
+          <% if (ch.HD) { %><span class="badge text-bg-secondary">HD</span><% } %>
+          <% if (ch.Favorite) { %><span class="badge text-bg-warning">★</span><% } %>
+          <% if (ch.DRM) { %><span class="badge text-bg-danger">DRM</span><% } %>
+          <% if (ch.Enabled === 0) { %><span class="badge text-bg-info">Hidden</span><% } %>
+          <% if (ch.Subscribed === 0) { %><span class="badge text-bg-danger" title="Encrypted channel not authorized on this device">DRM</span><% } %>
+        </div>
+        <% if (ch.VideoCodec || ch.AudioCodec || ch.URL) { %>
+          <div class="small text-body-secondary mt-1">
+            <% if (ch.VideoCodec) { %><span class="me-2">Video: <%= ch.VideoCodec %></span><% } %>
+            <% if (ch.AudioCodec) { %><span class="me-2">Audio: <%= ch.AudioCodec %></span><% } %>
+            <% if (ch.URL) { %><a class="me-2" href="<%= ch.URL %>"><%= ch.URL %></a><% } %>
+          </div>
+        <% } %>
+      </div>
+    <% }); %>
+  </div>
+<% } %>
+
+<script>
+  (function () {
+    var favCheck = document.getElementById('filter-favorites');
+    var hdCheck = document.getElementById('filter-hd');
+    var hiddenCheck = document.getElementById('filter-hidden');
+    var rows = document.querySelectorAll('.channel-row');
+    var countEl = document.getElementById('channel-count');
+    if (!rows.length) return;
+
+    function applyFilters() {
+      var visible = 0;
+      rows.forEach(function (row) {
+        var showHidden = hiddenCheck.checked || row.dataset.hidden !== '1';
+        var matchesFav = !favCheck.checked || row.dataset.favorite === '1';
+        var matchesHd = !hdCheck.checked || row.dataset.hd === '1';
+        var show = showHidden && matchesFav && matchesHd;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+      });
+      countEl.textContent = visible + ' channel' + (visible === 1 ? '' : 's');
+    }
+
+    [favCheck, hdCheck, hiddenCheck].forEach(function (el) {
+      el.addEventListener('change', applyFilters);
+    });
+    applyFilters();
+  })();
+</script>
+
+<%- include('_footer') %>
