@@ -23,7 +23,7 @@ router.get('/scan/status', async (req, res) => {
 
 router.post('/scan/start', async (req, res) => {
   try {
-    await hdhr.startScan();
+    await hdhr.startScan(req.body.source);
     const status = await hdhr.getLineupStatus();
     res.render('_scan_status', { status, error: null });
   } catch (err) {

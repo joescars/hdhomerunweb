@@ -21,7 +21,14 @@
       <div class="card-body">
         <p>No scan in progress.</p>
         <% if (status.Found) { %><p><%= status.Found %> channel(s) found in last scan.</p><% } %>
-        <form hx-post="/scan/start" hx-target="#scan-status" hx-swap="outerHTML">
+        <form hx-post="/scan/start" hx-target="#scan-status" hx-swap="outerHTML" class="d-flex align-items-center gap-2 flex-wrap">
+          <% if (status.SourceList && status.SourceList.length > 1) { %>
+            <select name="source" class="form-select form-select-sm w-auto">
+              <% status.SourceList.forEach(function(src) { %>
+                <option value="<%= src %>" <%= src === status.Source ? 'selected' : '' %>><%= src %></option>
+              <% }); %>
+            </select>
+          <% } %>
           <button type="submit" class="btn btn-primary">Start Scan</button>
         </form>
       </div>

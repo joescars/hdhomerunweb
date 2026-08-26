@@ -1,0 +1,35 @@
+<div class="list-group-item channel-row"
+     id="channel-<%= ch.GuideNumber.replace('.', '-') %>"
+     data-favorite="<%= ch.Favorite ? 1 : 0 %>"
+     data-hd="<%= ch.HD ? 1 : 0 %>"
+     data-hidden="<%= ch.Enabled === 0 ? 1 : 0 %>">
+  <div class="d-flex align-items-center gap-2">
+    <span class="badge text-bg-primary flex-shrink-0" style="min-width: 3rem;"><%= ch.GuideNumber %></span>
+    <span class="text-truncate"><%= ch.GuideName %></span>
+  </div>
+  <div class="d-flex align-items-center flex-wrap gap-2 mt-2">
+    <% if (typeof ch.SignalStrength !== 'undefined') { %>
+      <span class="badge text-bg-dark border" title="Signal strength / quality">📶 <%= ch.SignalStrength %>% / <%= ch.SignalQuality %>%</span>
+    <% } %>
+    <% if (ch.HD) { %><span class="badge text-bg-secondary">HD</span><% } %>
+    <% if (ch.DRM) { %><span class="badge text-bg-danger">DRM</span><% } %>
+    <% if (ch.Subscribed === 0) { %><span class="badge text-bg-danger" title="Encrypted channel not authorized on this device">DRM</span><% } %>
+    <div class="btn-group btn-group-sm ms-auto" role="group">
+      <button type="button" class="btn <%= ch.Favorite ? 'btn-warning' : 'btn-outline-warning' %>"
+              title="<%= ch.Favorite ? 'Unfavorite' : 'Favorite' %>"
+              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= ch.Favorite ? '-' : '+' %>"
+              hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">★</button>
+      <button type="button" class="btn <%= ch.Enabled === 0 ? 'btn-info' : 'btn-outline-info' %>"
+              title="<%= ch.Enabled === 0 ? 'Unhide' : 'Hide' %>"
+              hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= ch.Enabled === 0 ? '-' : 'x' %>"
+              hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">🚫</button>
+    </div>
+  </div>
+  <% if (ch.VideoCodec || ch.AudioCodec || ch.URL) { %>
+    <div class="small text-body-secondary mt-1">
+      <% if (ch.VideoCodec) { %><span class="me-2">Video: <%= ch.VideoCodec %></span><% } %>
+      <% if (ch.AudioCodec) { %><span class="me-2">Audio: <%= ch.AudioCodec %></span><% } %>
+      <% if (ch.URL) { %><a class="me-2" href="<%= ch.URL %>"><%= ch.URL %></a><% } %>
+    </div>
+  <% } %>
+</div>

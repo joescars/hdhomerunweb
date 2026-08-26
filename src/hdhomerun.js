@@ -30,12 +30,17 @@ function getLineupStatus() {
   return request('/lineup_status.json');
 }
 
-function startScan() {
-  return request('/lineup.post?scan=start', { method: 'POST' });
+function startScan(source) {
+  const query = source ? `&source=${encodeURIComponent(source)}` : '';
+  return request(`/lineup.post?scan=start${query}`, { method: 'POST' });
 }
 
 function abortScan() {
   return request('/lineup.post?scan=abort', { method: 'POST' });
+}
+
+function setChannelFlag(guideNumber, mode) {
+  return request(`/lineup.post?favorite=${encodeURIComponent(mode + guideNumber)}`, { method: 'POST' });
 }
 
 function getTunerStatus() {
@@ -49,5 +54,6 @@ module.exports = {
   getLineupStatus,
   startScan,
   abortScan,
+  setChannelFlag,
   getTunerStatus,
 };
