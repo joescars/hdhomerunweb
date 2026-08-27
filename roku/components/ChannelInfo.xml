@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    Custom channel-info renderer used by TimeGrid via channelInfoComponentName.
+    Renders the channel number over/under a small logo image, falling back to
+    the channel name text if the logo fails to load.
+
+    Interface fields (width, height, itemContent, focusPercent) follow the
+    standard Roku custom list/grid item-renderer contract.
+-->
+<component name="ChannelInfo" extends="Group">
+    <interface>
+        <field id="width" type="float" onChange="onSizeChange" />
+        <field id="height" type="float" onChange="onSizeChange" />
+        <field id="itemContent" type="node" onChange="onContentChange" />
+        <field id="focusPercent" type="float" onChange="onFocusChange" />
+    </interface>
+
+    <children>
+        <Rectangle id="bg" color="0x142238FF" />
+        <Poster id="logo" loadDisplayMode="scaleToFit" translation="[8, 8]" />
+        <Label id="numberLabel" horizAlign="center" vertAlign="center" color="0xFFFFFFFF" />
+    </children>
+
+    <script type="text/brightscript" uri="ChannelInfo.brs" />
+</component>

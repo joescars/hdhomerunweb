@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="GuideRow" extends="Group">
+    <interface>
+        <field id="width" type="float" onChange="onSizeChange" />
+        <field id="height" type="float" onChange="onSizeChange" />
+        <field id="itemContent" type="node" onChange="onContentChange" />
+        <field id="focusPercent" type="float" onChange="onFocusChange" />
+    </interface>
+
+    <children>
+        <Rectangle id="background" width="1920" height="60" color="0x101820FF" />
+        <Rectangle id="channelBackground" width="300" height="60" color="0x142238FF" />
+        <Rectangle translation="[300, 0]" width="2" height="60" color="0x334155FF" />
+        <Rectangle translation="[780, 0]" width="2" height="60" color="0x334155FF" />
+        <Rectangle translation="[1260, 0]" width="2" height="60" color="0x334155FF" />
+        <Poster id="channelLogo" translation="[10, 5]" width="58" height="50" loadDisplayMode="scaleToFit" />
+        <Label id="channelLabel" translation="[78, 0]" width="202" height="60" font="font:SmallBoldSystemFont" vertAlign="center" />
+        <Label id="firstLabel" translation="[324, 0]" width="432" height="60" font="font:SmallSystemFont" vertAlign="center" />
+        <Label id="secondLabel" translation="[804, 0]" width="432" height="60" font="font:SmallSystemFont" vertAlign="center" />
+        <Label id="thirdLabel" translation="[1284, 0]" width="612" height="60" font="font:SmallSystemFont" vertAlign="center" />
+    </children>
+
+    <script type="text/brightscript" uri="GuideRow.brs" />
+</component>

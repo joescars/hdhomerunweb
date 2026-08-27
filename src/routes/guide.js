@@ -20,11 +20,7 @@ router.get('/guide/grid', async (req, res) => {
       guide.getGuide({ duration: 4 }),
       hdhr.getLineup().catch(() => []),
     ]);
-    const favoritesByNumber = new Map((lineup || []).map((c) => [c.GuideNumber, !!c.Favorite]));
-    const channels = (guideChannels || []).map((ch) => ({
-      ...ch,
-      Favorite: favoritesByNumber.get(ch.GuideNumber) || false,
-    }));
+    const channels = guide.mergeFavorites(guideChannels, lineup);
     res.render('guide-grid', { channels, error: null, now });
   } catch (err) {
     res.render('guide-grid', { channels: [], error: err.message, now });

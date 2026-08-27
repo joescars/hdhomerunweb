@@ -23,4 +23,22 @@ async function getGuide({ duration = 6 } = {}) {
   }
 }
 
-module.exports = { getGuide };
+function indexLineupByNumber(lineup) {
+  const map = new Map();
+  (lineup || []).forEach((entry) => {
+    if (entry && entry.GuideNumber) {
+      map.set(entry.GuideNumber, entry);
+    }
+  });
+  return map;
+}
+
+function mergeFavorites(guideChannels, lineup) {
+  const lineupByNumber = indexLineupByNumber(lineup);
+  return (guideChannels || []).map((ch) => ({
+    ...ch,
+    Favorite: !!(lineupByNumber.get(ch.GuideNumber) || {}).Favorite,
+  }));
+}
+
+module.exports = { getGuide, indexLineupByNumber, mergeFavorites };

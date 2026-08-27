@@ -1,0 +1,20 @@
+title=HDHomeRun Web Client
+major_version=1
+minor_version=0
+build_version=17
+
+mm_icon_focus_fhd=pkg:/images/icon_focus_fhd.png
+mm_icon_focus_hd=pkg:/images/icon_focus_hd.png
+mm_icon_focus_sd=pkg:/images/icon_focus_sd.png
+
+splash_screen_fhd=pkg:/images/splash_fhd.png
+splash_screen_hd=pkg:/images/splash_hd.png
+
+splash_color=#0A1428
+
+ui_resolutions=fhd
+
+bs_const=IS_DEV=false
+
+requires_gms_registration=0
+supports_input_launch=1

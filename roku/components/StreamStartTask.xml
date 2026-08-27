@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="StreamStartTask" extends="Task">
+    <interface>
+        <!-- in: server base URL, no trailing slash -->
+        <field id="serverUrl" type="string" />
+        <!-- in: channel number string, e.g. "3.1" -->
+        <field id="channelNumber" type="string" />
+        <!-- out: { state: "ready"|"failed"|"timeout", error: string } -->
+        <field id="result" type="assocarray" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="pkg:/components/Net.brs" />
+    <script type="text/brightscript" uri="StreamStartTask.brs" />
+</component>
