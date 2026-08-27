@@ -197,29 +197,49 @@ sub onStatsResult(event as object)
     tuner = payload.tuner
     signalError = payload.signalError
 
+    channelText = "n/a"
+    codecText = "n/a"
+    profileText = "n/a"
+    if payload.channel <> invalid and payload.channel <> "" then channelText = payload.channel.ToStr()
+    if payload.codec <> invalid and payload.codec <> "" then codecText = UCase(payload.codec.ToStr())
+    if payload.profile <> invalid and payload.profile <> "" then profileText = payload.profile.ToStr()
+
     lines = []
-    lines.Push("Channel " + payload.channel + "  •  Codec " + UCase(payload.codec) + "  •  Profile " + payload.profile)
+    lines.Push("Channel " + channelText + "  •  Codec " + codecText + "  •  Profile " + profileText)
 
     if session <> invalid
         ffmpeg = session.ffmpeg
         progress = session.progress
-        lines.Push("Video target: " + ffmpeg.targetVideoBitrate + " (" + ffmpeg.videoEncoder + ")")
-        lines.Push("Audio target: " + ffmpeg.targetAudioBitrate + " (" + ffmpeg.audioEncoder + ")")
+
+        videoTarget = "n/a"
+        videoEncoder = "n/a"
+        audioTarget = "n/a"
+        audioEncoder = "n/a"
+        if ffmpeg <> invalid
+            if ffmpeg.targetVideoBitrate <> invalid and ffmpeg.targetVideoBitrate <> "" then videoTarget = ffmpeg.targetVideoBitrate.ToStr()
+            if ffmpeg.videoEncoder <> invalid and ffmpeg.videoEncoder <> "" then videoEncoder = ffmpeg.videoEncoder.ToStr()
+            if ffmpeg.targetAudioBitrate <> invalid and ffmpeg.targetAudioBitrate <> "" then audioTarget = ffmpeg.targetAudioBitrate.ToStr()
+            if ffmpeg.audioEncoder <> invalid and ffmpeg.audioEncoder <> "" then audioEncoder = ffmpeg.audioEncoder.ToStr()
+        end if
+        lines.Push("Video target: " + videoTarget + " (" + videoEncoder + ")")
+        lines.Push("Audio target: " + audioTarget + " (" + audioEncoder + ")")
 
         fpsText = "n/a"
-        if progress.fps <> invalid then fpsText = progress.fps.ToStr()
+        if progress <> invalid and progress.fps <> invalid then fpsText = progress.fps.ToStr()
 
         speedText = "n/a"
-        if progress.speed <> invalid and progress.speed <> "" then speedText = progress.speed
+        if progress <> invalid and progress.speed <> invalid and progress.speed <> "" then speedText = progress.speed.ToStr()
 
         bitrateText = "n/a"
-        if progress.bitrate <> invalid and progress.bitrate <> "" then bitrateText = progress.bitrate
+        if progress <> invalid and progress.bitrate <> invalid and progress.bitrate <> "" then bitrateText = progress.bitrate.ToStr()
 
         lines.Push("FFmpeg: fps " + fpsText + "  •  speed " + speedText + "  •  bitrate " + bitrateText)
 
-        ageSec = Int(session.ageMs / 1000)
-        idleSec = Int(session.idleMs / 1000)
-        lines.Push("Session age: " + ageSec.ToStr() + "s  •  Last access: " + idleSec.ToStr() + "s ago")
+        ageSecText = "n/a"
+        if session.ageMs <> invalid then ageSecText = Int(session.ageMs / 1000).ToStr()
+        idleSecText = "n/a"
+        if session.idleMs <> invalid then idleSecText = Int(session.idleMs / 1000).ToStr()
+        lines.Push("Session age: " + ageSecText + "s  •  Last access: " + idleSecText + "s ago")
     else
         lines.Push("No active transcoder session found")
     end if
@@ -239,7 +259,7 @@ sub onStatsResult(event as object)
         lines.Push("No matching tuner telemetry for this channel yet")
     end if
 
-    m.statsBody.text = Join(lines, Chr(10))
+    m.statsBody.text = lines.Join(Chr(10))
 end sub
 
 function percentText(value as dynamic) as string
