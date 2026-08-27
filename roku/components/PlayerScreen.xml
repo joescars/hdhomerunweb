@@ -13,6 +13,8 @@
     </interface>
 
     <children>
+        <Timer id="statsTimer" repeat="true" duration="2.5" />
+
         <Video id="video"
             translation="[0, 0]"
             width="1920"
@@ -47,6 +49,38 @@
             vertAlign="center"
             color="0xAAAAAAFF"
             visible="false" />
+
+        <Group id="statsPanel" translation="[46, 44]" visible="false">
+            <Rectangle
+                width="920"
+                height="460"
+                color="0x0A1428EE" />
+            <Rectangle
+                width="920"
+                height="3"
+                color="0x38BDF8FF" />
+            <Label id="statsTitle"
+                translation="[20, 10]"
+                width="880"
+                height="34"
+                font="font:SmallBoldSystemFont"
+                color="0xFFFFFFFF"
+                text="Stream diagnostics" />
+            <Label id="statsBody"
+                translation="[20, 54]"
+                width="880"
+                height="360"
+                font="font:SmallSystemFont"
+                wrap="true"
+                color="0xD0D0D0FF" />
+            <Label id="statsHint"
+                translation="[20, 418]"
+                width="880"
+                height="28"
+                font="font:SmallSystemFont"
+                color="0x91A4B8FF"
+                text="Up: hide diagnostics   Back: return to Guide" />
+        </Group>
     </children>
 
     <script type="text/brightscript" uri="PlayerScreen.brs" />

@@ -6,7 +6,7 @@
 </h1>
 
 <div class="ratio ratio-16x9 bg-black rounded overflow-hidden mb-3">
-  <video id="player" controls autoplay muted playsinline></video>
+  <video id="player" controls autoplay playsinline></video>
 </div>
 
 <div id="player-status" class="text-body-secondary small">Tuning&hellip; usually just a few seconds.</div>
@@ -15,27 +15,78 @@
 <script>
   (function () {
     var channel = <%- JSON.stringify(channel) %>;
+    var forcedProfile = <%- JSON.stringify(qualityProfile) %>;
+    var qualityOptions = <%- JSON.stringify(qualityOptions || []) %>;
     var video = document.getElementById('player');
     var status = document.getElementById('player-status');
-    var streamBase = '/stream/' + encodeURIComponent(channel) + '/h264/';
+    var profile = chooseProfile();
+    var streamBase = '/stream/' + encodeURIComponent(channel) + '/h264/' + encodeURIComponent(profile) + '/';
     var src = streamBase + 'stream.m3u8';
     var POLL_INTERVAL_MS = 500;
     var MAX_WAIT_MS = 30000;
+    var HEARTBEAT_INTERVAL_MS = 4000;
+    var heartbeatTimer = null;
 
     function setStatus(text) { status.textContent = text; }
 
+    function chooseProfile() {
+      if (qualityOptions.indexOf(forcedProfile) !== -1) {
+        return forcedProfile;
+      }
+
+      var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      if (!connection) return 'medium';
+      if (connection.saveData) return 'low';
+
+      var effectiveType = connection.effectiveType || '';
+      if (effectiveType === 'slow-2g' || effectiveType === '2g' || effectiveType === '3g') {
+        return 'low';
+      }
+
+      if (typeof connection.downlink === 'number' && connection.downlink >= 8) {
+        return 'high';
+      }
+      if (typeof connection.downlink === 'number' && connection.downlink <= 2.5) {
+        return 'low';
+      }
+      return 'medium';
+    }
+
+    function sendHeartbeat() {
+      fetch(streamBase + 'heartbeat', { method: 'POST', keepalive: true }).catch(function () {});
+    }
+
+    function startHeartbeat() {
+      if (heartbeatTimer) return;
+      sendHeartbeat();
+      heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+    }
+
+    function stopHeartbeat() {
+      if (!heartbeatTimer) return;
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+
+    window.addEventListener('pagehide', stopHeartbeat);
+
     function playHls() {
       if (window.Hls && Hls.isSupported()) {
-        var hls = new Hls();
+        var hls = new Hls({
+          lowLatencyMode: true,
+          liveSyncDurationCount: 2,
+          maxBufferLength: 10,
+          backBufferLength: 30
+        });
         hls.loadSource(src);
         hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () { setStatus('Live'); video.play(); });
+        hls.on(Hls.Events.MANIFEST_PARSED, function () { setStatus('Live'); startHeartbeat(); video.play(); });
         hls.on(Hls.Events.ERROR, function (event, data) {
           if (data.fatal) setStatus('Stream error: ' + data.details);
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;
-        video.addEventListener('loadedmetadata', function () { setStatus('Live'); video.play(); });
+        video.addEventListener('loadedmetadata', function () { setStatus('Live'); startHeartbeat(); video.play(); });
       } else {
         setStatus('Your browser does not support HLS playback.');
       }
@@ -64,6 +115,7 @@
         });
     }
 
+    setStatus('Starting stream (' + profile + ' quality)…');
     fetch(streamBase + 'start', { method: 'POST' })
       .then(function () { pollUntilReady(Date.now()); })
       .catch(function () { setStatus('Could not reach the server to start the stream.'); });

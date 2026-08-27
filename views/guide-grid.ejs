@@ -82,6 +82,43 @@
     return new Date(ts * 1000).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
+  function chooseProfile() {
+    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!connection) return 'medium';
+    if (connection.saveData) return 'low';
+
+    var effectiveType = connection.effectiveType || '';
+    if (effectiveType === 'slow-2g' || effectiveType === '2g' || effectiveType === '3g') {
+      return 'low';
+    }
+    if (typeof connection.downlink === 'number' && connection.downlink >= 8) {
+      return 'high';
+    }
+    if (typeof connection.downlink === 'number' && connection.downlink <= 2.5) {
+      return 'low';
+    }
+    return 'medium';
+  }
+
+  function prewarmAndNavigate(channel) {
+    var profile = chooseProfile();
+    var encodedChannel = encodeURIComponent(channel);
+    var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile);
+    var startUrl = '/stream/' + encodedChannel + '/h264/' + encodeURIComponent(profile) + '/start';
+    var didNavigate = false;
+
+    function navigateNow() {
+      if (didNavigate) return;
+      didNavigate = true;
+      window.location.href = destination;
+    }
+
+    setTimeout(navigateNow, 140);
+    fetch(startUrl, { method: 'POST', keepalive: true })
+      .catch(function () {})
+      .finally(navigateNow);
+  }
+
   var header = document.createElement('div');
   header.className = 'guide-header-row';
   var headerSpacer = document.createElement('div');
@@ -110,7 +147,7 @@
     var cell = document.createElement('div');
     cell.className = 'guide-channel-cell';
     cell.title = 'Watch ' + ch.GuideName;
-    cell.onclick = function () { window.location.href = '/watch/' + encodeURIComponent(ch.GuideNumber); };
+    cell.onclick = function () { prewarmAndNavigate(ch.GuideNumber); };
     var num = document.createElement('div');
     num.className = 'guide-channel-number';
     num.textContent = ch.GuideNumber + (ch.Favorite ? ' ★' : '');
@@ -145,7 +182,7 @@
       block.style.width = Math.max(width - 2, 20) + 'px';
       block.title = airing.Title + ' (' + fmtTime(airing.StartTime) + ' - ' + fmtTime(airing.EndTime) + ')';
       block.textContent = airing.Title;
-      block.onclick = function () { window.location.href = '/watch/' + encodeURIComponent(ch.GuideNumber); };
+      block.onclick = function () { prewarmAndNavigate(ch.GuideNumber); };
       track.appendChild(block);
     });
 
