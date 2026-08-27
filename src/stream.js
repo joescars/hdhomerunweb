@@ -9,14 +9,26 @@ const STREAM_ROOT = path.join(os.tmpdir(), 'hdhomerun-web-streams');
 const IDLE_TIMEOUT_MS = 20_000;
 const READY_TIMEOUT_MS = 50_000;
 
+// h264 is the broadly-compatible default (every browser's MSE/hls.js pipeline
+// plays it). hevc is opt-in, used only by the Roku client, whose Video node
+// decodes it natively rather than through a JS demuxer - see CLAUDE.md.
+const CODECS = {
+  h264: 'h264_qsv',
+  hevc: 'hevc_qsv',
+};
+
 const sessions = new Map();
 
-function channelDir(channel) {
-  return path.join(STREAM_ROOT, channel);
+function sessionKey(channel, codec) {
+  return `${channel}:${codec}`;
 }
 
-function spawnFfmpeg(channel) {
-  const dir = channelDir(channel);
+function channelDir(channel, codec) {
+  return path.join(STREAM_ROOT, `${channel}-${codec}`);
+}
+
+function spawnFfmpeg(channel, codec) {
+  const dir = channelDir(channel, codec);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
 
@@ -29,7 +41,7 @@ function spawnFfmpeg(channel) {
     '-hwaccel', 'qsv', '-hwaccel_output_format', 'qsv', '-c:v', 'mpeg2_qsv',
     '-i', sourceUrl,
     '-map', '0:v:0', '-map', '0:a:0',
-    '-c:v', 'hevc_qsv', '-global_quality', '21', '-look_ahead', '0', '-forced_idr', '1',
+    '-c:v', CODECS[codec], '-global_quality', '21', '-look_ahead', '0', '-forced_idr', '1',
     '-g', '60', '-force_key_frames', 'expr:eq(n,0)+gte(t,n_forced*2)',
     '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
     '-f', 'hls',
@@ -46,6 +58,7 @@ function spawnFfmpeg(channel) {
     stderrTail = (stderrTail + chunk.toString()).slice(-4000);
   });
 
+  const key = sessionKey(channel, codec);
   const session = {
     process: proc,
     dir,
@@ -57,7 +70,7 @@ function spawnFfmpeg(channel) {
 
   proc.on('exit', () => {
     session.exited = true;
-    sessions.delete(channel);
+    sessions.delete(key);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -78,11 +91,12 @@ async function waitForPlaylist(session) {
   throw new Error('Timed out waiting for stream to start');
 }
 
-function getOrCreateSession(channel) {
-  let session = sessions.get(channel);
+function getOrCreateSession(channel, codec) {
+  const key = sessionKey(channel, codec);
+  let session = sessions.get(key);
   if (!session) {
-    session = spawnFfmpeg(channel);
-    sessions.set(channel, session);
+    session = spawnFfmpeg(channel, codec);
+    sessions.set(key, session);
   }
   session.lastAccess = Date.now();
   return session;
@@ -93,45 +107,46 @@ function getOrCreateSession(channel) {
 // isReady() rather than holding one long HTTP request (tuning can take
 // anywhere from ~5s to ~40s and browsers/hls.js time out long single
 // requests well before that).
-function start(channel) {
-  getOrCreateSession(channel);
+function start(channel, codec) {
+  getOrCreateSession(channel, codec);
 }
 
-function isReady(channel) {
-  const session = sessions.get(channel);
+function isReady(channel, codec) {
+  const session = sessions.get(sessionKey(channel, codec));
   if (!session) return { ready: false, failed: false };
   if (session.exited) return { ready: false, failed: true, error: session.stderrTail() };
   return { ready: fs.existsSync(session.playlist), failed: false };
 }
 
-async function ensureSession(channel) {
-  const session = getOrCreateSession(channel);
+async function ensureSession(channel, codec) {
+  const session = getOrCreateSession(channel, codec);
   try {
     await waitForPlaylist(session);
   } catch (err) {
-    stopSession(channel);
+    stopSession(channel, codec);
     throw err;
   }
   return session;
 }
 
-function touch(channel) {
-  const session = sessions.get(channel);
+function touch(channel, codec) {
+  const session = sessions.get(sessionKey(channel, codec));
   if (session) session.lastAccess = Date.now();
 }
 
-function stopSession(channel) {
-  const session = sessions.get(channel);
+function stopSession(channel, codec) {
+  const session = sessions.get(sessionKey(channel, codec));
   if (session) session.process.kill('SIGTERM');
 }
 
 setInterval(() => {
   const now = Date.now();
-  for (const [channel, session] of sessions) {
+  for (const [key, session] of sessions) {
     if (now - session.lastAccess > IDLE_TIMEOUT_MS) {
-      stopSession(channel);
+      const [channel, codec] = key.split(':');
+      stopSession(channel, codec);
     }
   }
 }, 5_000).unref();
 
-module.exports = { ensureSession, start, isReady, touch, stopSession, channelDir };
+module.exports = { ensureSession, start, isReady, touch, stopSession, channelDir, CODECS };

@@ -21,8 +21,10 @@ sub doStart()
         return
     end if
 
-    startUrl = base + "/stream/" + chan + "/start"
-    readyUrl = base + "/stream/" + chan + "/ready"
+    ' Roku always requests the hevc encode - its Video node decodes HEVC
+    ' natively, unlike the browser player's hls.js pipeline (h264 only).
+    startUrl = base + "/stream/" + chan + "/hevc/start"
+    readyUrl = base + "/stream/" + chan + "/hevc/ready"
 
     ' Step 1: kick off the tuner/transcode. 202 Accepted with no body expected,
     ' but we treat any 2xx as success.
