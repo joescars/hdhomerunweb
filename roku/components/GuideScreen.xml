@@ -29,12 +29,12 @@
             itemSize="[1920, 60]"
             itemSpacing="[0, 2]"
             numColumns="1"
-            numRows="13"
-            clippingRect="[0, 0, 1920, 806]"
+            numRows="14"
+            clippingRect="[0, 0, 1920, 866]"
             drawFocusFeedback="false"
             vertFocusAnimationStyle="fixedFocusWrap" />
 
-        <Group id="detailPanel" translation="[0, 860]">
+        <Group id="detailPanel" translation="[0, 920]">
             <Rectangle
                 translation="[0, 0]"
                 width="1920"
@@ -59,14 +59,6 @@
                 wrap="true"
                 color="0xCCCCCCFF" />
         </Group>
-
-        <Label id="hintLabel"
-            text="Options ( * ) : Settings"
-            translation="[1480, 1020]"
-            width="380"
-            height="40"
-            horizAlign="right"
-            color="0xAAAAAAFF" />
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->
         <Rectangle id="statusBg"

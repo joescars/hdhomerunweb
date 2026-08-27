@@ -3,7 +3,6 @@
 
 sub init()
     m.guideGrid = m.top.findNode("guideGrid")
-    m.hintLabel = m.top.findNode("hintLabel")
     m.detailTitle = m.top.findNode("detailTitle")
     m.detailSynopsis = m.top.findNode("detailSynopsis")
     m.statusBg = m.top.findNode("statusBg")
@@ -69,9 +68,7 @@ sub onGuideResult(event as object)
         end if
 
         if m.hasLoadedOnce
-            ' Don't blow away a working grid over a transient refresh
-            ' failure - just show a quiet corner message briefly.
-            m.hintLabel.text = errMsg
+            print "[GuideScreen] guide refresh failed: "; errMsg
         else
             showStatus(errMsg)
         end if
@@ -80,7 +77,6 @@ sub onGuideResult(event as object)
 
     hideStatus()
     m.hasLoadedOnce = true
-    m.hintLabel.text = "Options ( * ) : Settings"
 
     serverTime = result.serverTime
     if serverTime = invalid
