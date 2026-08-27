@@ -75,16 +75,23 @@ Things that will bite:
 - **Don't collapse the playback handshake** (POST `/start` → poll `/ready` →
   then set the Video node's URL). The `.m3u8` does not exist until ffmpeg spins
   up; pointing the player at it early fails.
-- **Server error strings are not screen-safe.** `/stream/<ch>/ready` returns an
-  ffmpeg stderr tail up to 4000 chars. `PlayerScreen.brs` logs it in full via
-  `print` (visible on `telnet <roku-ip> 8085`) and shows a truncated line on TV.
-- **Transcoding target is HEVC, not MPEG-2 passthrough.** `src/stream.js` uses
-  QSV hardware decode (`mpeg2_qsv`) and HEVC encode (`hevc_qsv`, global quality
-  21) because Roku's MPEG-2 support is inconsistent across the device fleet and
-  raw MPEG-TS from the tuner isn't a supported Roku stream format at all. This
-  is shared by both clients (`src/stream.js` has no Roku-specific branch) — if
-  you change codec/quality here, check playback on both the browser player and
-  `PlayerScreen.brs`.
+- **Server error strings are not screen-safe.** `/stream/<ch>/<codec>/ready`
+  returns an ffmpeg stderr tail up to 4000 chars. `PlayerScreen.brs` logs it
+  in full via `print` (visible on `telnet <roku-ip> 8085`) and shows a
+  truncated line on TV.
+- **Transcoding target is codec-per-client, not MPEG-2 passthrough.**
+  `src/stream.js` always QSV-decodes the tuner's raw MPEG2/AC3 (raw MPEG-TS
+  isn't a supported Roku stream format, and browsers can't decode MPEG2
+  either), then re-encodes with `h264_qsv` or `hevc_qsv` depending on a
+  `:codec` path segment (`/stream/<ch>/h264/...` vs `/stream/<ch>/hevc/...`,
+  validated against `CODEC_RE` in `src/routes/watch.js`). The browser player
+  (`views/watch.ejs`) always requests `h264` — hls.js's MPEG-TS demuxer parses
+  H.264 NAL units only and throws `fragParsingError` on HEVC. The Roku client
+  requests `hevc` (`StreamStartTask.brs`, and `streamPath` in
+  `src/routes/api.js`) since its Video node decodes HEVC natively and gets a
+  bitrate/quality win from it. Sessions are keyed by `channel:codec` in
+  `src/stream.js`, so the same channel can be tuned by both clients at once
+  without one clobbering the other's encode.
 
 ## Screenshots
 

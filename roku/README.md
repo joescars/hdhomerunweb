@@ -111,11 +111,12 @@ Roku app                     hdhomerun-web server              HDHomeRun
    |-- GET /api/guide --------------->|-- cloud Guide API           |
    |<-- channels + now/next ----------|                             |
    |                                  |                             |
-   |-- POST /stream/3.1/start ------->|-- spawn ffmpeg (QSV) ------->| tune
-   |-- GET  /stream/3.1/ready ------->|   (poll every 500ms)         |
+   |-- POST /stream/3.1/hevc/start -->|-- spawn ffmpeg (QSV) ------->| tune
+   |-- GET  /stream/3.1/hevc/ready -->|   (poll every 500ms)         |
    |<-- {"ready":true} ---------------|                             |
    |                                  |                             |
-   |-- GET /stream/3.1/stream.m3u8 -->|   MPEG2/AC3 -> HEVC/AAC HLS  |
+   |-- GET /stream/3.1/hevc/          |   MPEG2/AC3 -> HEVC/AAC HLS  |
+   |       stream.m3u8 -------------->|                             |
    |<== HLS segments =================|<============================|
 ```
 

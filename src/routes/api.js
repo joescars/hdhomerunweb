@@ -52,7 +52,7 @@ router.get('/api/guide', async (req, res) => {
       name: (lineupEntry && lineupEntry.GuideName) || ch.GuideName || '',
       logo: ch.ImageURL || '',
       favorite: !!(lineupEntry && lineupEntry.Favorite),
-      streamPath: `/stream/${ch.GuideNumber}/stream.m3u8`,
+      streamPath: `/stream/${ch.GuideNumber}/hevc/stream.m3u8`,
       programs,
     });
   }

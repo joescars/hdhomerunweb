@@ -17,7 +17,8 @@
     var channel = <%- JSON.stringify(channel) %>;
     var video = document.getElementById('player');
     var status = document.getElementById('player-status');
-    var src = '/stream/' + encodeURIComponent(channel) + '/stream.m3u8';
+    var streamBase = '/stream/' + encodeURIComponent(channel) + '/h264/';
+    var src = streamBase + 'stream.m3u8';
     var POLL_INTERVAL_MS = 500;
     var MAX_WAIT_MS = 30000;
 
@@ -41,7 +42,7 @@
     }
 
     function pollUntilReady(startedAt) {
-      fetch('/stream/' + encodeURIComponent(channel) + '/ready')
+      fetch(streamBase + 'ready')
         .then(function (r) { return r.json(); })
         .then(function (state) {
           if (state.ready) {
@@ -63,7 +64,7 @@
         });
     }
 
-    fetch('/stream/' + encodeURIComponent(channel) + '/start', { method: 'POST' })
+    fetch(streamBase + 'start', { method: 'POST' })
       .then(function () { pollUntilReady(Date.now()); })
       .catch(function () { setStatus('Could not reach the server to start the stream.'); });
   })();
