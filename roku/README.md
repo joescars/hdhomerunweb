@@ -89,6 +89,10 @@ Worth knowing: playback and tuning failures are deliberately logged in full
 there, while the on-screen message is kept short — the server's error field can
 carry several KB of ffmpeg output that would be unreadable on a TV.
 
+While watching live TV, press **Up** on the remote to toggle a diagnostics
+overlay. It shows stream codec/profile/target bitrate plus live ffmpeg metrics
+(fps/speed/bitrate) and tuner signal telemetry when available.
+
 ## Things to know
 
 - **Only one sideloaded app can exist on a Roku at a time.** Installing this
