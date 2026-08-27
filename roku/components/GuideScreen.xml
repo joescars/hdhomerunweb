@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="GuideScreen" extends="Group">
+    <interface>
+        <!-- in -->
+        <field id="serverUrl" type="string" />
+        <!-- out: { channelNumber, channelName, streamPath } - fires when the user selects a channel/program -->
+        <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
+        <!-- out: fires when the user presses the Options remote button -->
+        <field id="openSettings" type="boolean" alwaysNotify="true" />
+        <!-- callable from MainScene -->
+        <function name="refreshGuide" />
+        <function name="onScreenFocus" />
+    </interface>
+
+    <children>
+        <Timer id="refreshTimer" repeat="true" duration="300" />
+
+        <TimeGrid id="timeGrid"
+            translation="[0, 0]"
+            width="1920"
+            height="820"
+            nowNextMode="true"
+            channelInfoComponentName="ChannelInfo"
+            channelInfoWidth="220"
+            fillProgramGaps="true"
+            channelNoDataText="No program data" />
+
+        <Label id="hintLabel"
+            text="Options ( * ) : Settings"
+            translation="[1600, 1030]"
+            width="300"
+            height="40"
+            horizAlign="right"
+            color="0xAAAAAAFF" />
+
+        <Group id="detailPanel" translation="[40, 840]">
+            <Label id="detailTitle"
+                translation="[0, 0]"
+                width="1840"
+                height="50"
+                color="0xFFFFFFFF" />
+            <Label id="detailSynopsis"
+                translation="[0, 55]"
+                width="1840"
+                height="130"
+                wrap="true"
+                color="0xCCCCCCFF" />
+        </Group>
+
+        <!-- Full-screen overlay used for loading state and fatal guide errors. -->
+        <Rectangle id="statusBg"
+            translation="[0, 0]"
+            width="1920"
+            height="1080"
+            color="0x0A1428FF"
+            visible="false" />
+        <Label id="statusLabel"
+            translation="[0, 0]"
+            width="1920"
+            height="1080"
+            horizAlign="center"
+            vertAlign="center"
+            color="0xFFFFFFFF"
+            visible="false" />
+    </children>
+
+    <script type="text/brightscript" uri="GuideScreen.brs" />
+</component>

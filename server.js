@@ -8,6 +8,7 @@ const scanRoutes = require('./src/routes/scan');
 const statusRoutes = require('./src/routes/status');
 const guideRoutes = require('./src/routes/guide');
 const watchRoutes = require('./src/routes/watch');
+const apiRoutes = require('./src/routes/api');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -25,6 +26,7 @@ app.use(scanRoutes);
 app.use(statusRoutes);
 app.use(guideRoutes);
 app.use(watchRoutes);
+app.use(apiRoutes);
 
 app.listen(PORT, () => {
   console.log(`hdhomerun-web listening on port ${PORT}`);

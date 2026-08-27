@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="SettingsScreen" extends="Group">
+    <interface>
+        <!-- in -->
+        <field id="serverUrl" type="string" />
+        <!-- out: fires with the new URL string when the user saves -->
+        <field id="saved" type="string" alwaysNotify="true" />
+        <!-- out: fires when the user backs out -->
+        <field id="closed" type="boolean" alwaysNotify="true" />
+        <!-- callable from MainScene -->
+        <function name="onScreenFocus" />
+    </interface>
+
+    <children>
+        <Rectangle translation="[0, 0]" width="1920" height="1080" color="0x0A1428FF" />
+
+        <Label translation="[120, 100]" text="Settings" width="800" height="60" color="0xFFFFFFFF" />
+
+        <Label id="urlLabel" translation="[120, 220]" width="1600" height="50" color="0xFFFFFFFF" />
+
+        <Label translation="[120, 300]"
+            text="Press OK to edit the server URL. Press Back to return to the guide."
+            width="1600"
+            height="50"
+            color="0xAAAAAAFF" />
+    </children>
+
+    <script type="text/brightscript" uri="SettingsScreen.brs" />
+</component>

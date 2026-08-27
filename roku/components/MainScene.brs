@@ -1,0 +1,119 @@
+' MainScene - top-level scene. Owns a simple screen stack (array of Group
+' nodes) since this app doesn't need anything fancier: GuideScreen is always
+' at the bottom, PlayerScreen / SettingsScreen get pushed on top of it.
+
+sub init()
+    m.top.backgroundColor = "0x0A1428FF"
+    m.screenStack = []
+    m.serverUrl = readServerUrl()
+
+    showGuide()
+end sub
+
+' --- registry -------------------------------------------------------------
+
+function readServerUrl() as string
+    defaultUrl = "http://192.168.68.121:8080"
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec.Exists("serverUrl")
+        stored = sec.Read("serverUrl")
+        if stored <> invalid and stored <> ""
+            return stored
+        end if
+    end if
+    return defaultUrl
+end function
+
+' --- screen stack -----------------------------------------------------------
+
+' NOTE: we deliberately call the screen's own "onScreenFocus" function rather
+' than screen.setFocus(true) directly. GuideScreen needs focus to land on its
+' inner TimeGrid (not the screen's outer Group) for remote navigation to
+' work, so each screen component owns exactly where its focus goes.
+sub pushScreen(screen as object)
+    if m.screenStack.Count() > 0
+        m.screenStack[m.screenStack.Count() - 1].visible = false
+    end if
+    m.top.appendChild(screen)
+    m.screenStack.Push(screen)
+    screen.callFunc("onScreenFocus")
+end sub
+
+sub popScreen()
+    if m.screenStack.Count() = 0 then return
+    screen = m.screenStack.Pop()
+    m.top.removeChild(screen)
+    if m.screenStack.Count() > 0
+        top = m.screenStack[m.screenStack.Count() - 1]
+        top.visible = true
+        top.callFunc("onScreenFocus")
+    end if
+end sub
+
+function currentScreen() as dynamic
+    if m.screenStack.Count() = 0 then return invalid
+    return m.screenStack[m.screenStack.Count() - 1]
+end function
+
+' --- guide ------------------------------------------------------------------
+
+sub showGuide()
+    screen = CreateObject("roSGNode", "GuideScreen")
+    screen.serverUrl = m.serverUrl
+    screen.observeField("launchPlayer", "onLaunchPlayer")
+    screen.observeField("openSettings", "onOpenSettings")
+    m.guideScreen = screen
+    pushScreen(screen)
+end sub
+
+' --- player -------------------------------------------------------------
+
+sub onLaunchPlayer(event as object)
+    data = event.getData()
+    if data = invalid then return
+
+    screen = CreateObject("roSGNode", "PlayerScreen")
+    screen.serverUrl = m.serverUrl
+    screen.channelNumber = data.channelNumber
+    screen.channelName = data.channelName
+    screen.streamPath = data.streamPath
+    screen.observeField("closed", "onPlayerClosed")
+    pushScreen(screen)
+end sub
+
+sub onPlayerClosed(event as object)
+    popScreen()
+end sub
+
+' --- settings -----------------------------------------------------------
+
+sub onOpenSettings(event as object)
+    screen = CreateObject("roSGNode", "SettingsScreen")
+    screen.serverUrl = m.serverUrl
+    screen.observeField("saved", "onSettingsSaved")
+    screen.observeField("closed", "onSettingsClosed")
+    pushScreen(screen)
+end sub
+
+sub onSettingsSaved(event as object)
+    newUrl = event.getData()
+    if newUrl = invalid or newUrl = "" then return
+    m.serverUrl = newUrl
+    if m.guideScreen <> invalid
+        m.guideScreen.serverUrl = newUrl
+        m.guideScreen.callFunc("refreshGuide")
+    end if
+end sub
+
+sub onSettingsClosed(event as object)
+    popScreen()
+end sub
+
+' --- called from main.brs's message loop --------------------------------
+
+sub onSystemResumeSignal()
+    top = currentScreen()
+    if top <> invalid and top.subtype() = "GuideScreen"
+        top.callFunc("refreshGuide")
+    end if
+end sub

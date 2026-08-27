@@ -1,0 +1,5 @@
+# Build artifact produced by deploy.sh
+roku-app.zip
+
+# Local Roku device settings (IP + Developer Mode password)
+.env

@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A mobile-responsive web UI for an HDHomeRun network tuner — a friendlier alternative to the device's own built-in web interface. Server-rendered Node/Express app, no SPA build step, packaged as a Docker container. See README.md for the full feature list and end-user setup instructions.
 
+**There are two clients against one server.** The Node/Express app in the repo root serves both the browser UI (EJS/htmx/Bootstrap) and a Roku app (`roku/`, BrightScript/SceneGraph). They share the streaming backend and the `/api/*` JSON, but nothing else — Roku has no browser, so none of the web frontend is reusable there. When changing `/api/guide` or the `/stream/*` handshake, check `roku/components/` for consumers.
+
 ## Commands
 
 ```bash
@@ -30,7 +32,7 @@ Config is normally supplied via `.env` (read automatically by `docker compose`),
 
 Express + EJS, server-rendered, with [htmx](https://htmx.org/) for partial-page updates (no client-side framework) and Bootstrap 5 (CDN) for styling, including a light/dark toggle.
 
-**Two upstream APIs, two separate clients:**
+**Two upstream APIs, one API-client module each:**
 - `src/hdhomerun.js` — talks directly to the local HDHomeRun device's HTTP API (`discover.json`, `lineup.json`, `lineup.post`, `lineup_status.json`, `status.json`). Exports one function per device operation; all requests go through a shared `request()` helper with a 5s timeout.
 - `src/guide.js` — talks to Silicondust's *cloud* Guide API (`api.hdhomerun.com/api/guide`), authenticated with the device's own `DeviceAuth` token. That token rotates every 16–24h, so `getGuide()` fetches it fresh from `hdhomerun.getDeviceInfo()` on every call rather than caching it — don't "optimize" this into a cached value.
 
@@ -45,6 +47,35 @@ Some of the device endpoints used here are **not in Silicondust's official HTTP 
 **Views:** `views/_header.ejs` / `_footer.ejs` are the shared layout shell (included manually in every top-level view — no layout engine). Partials prefixed with `_` (`_channel_row.ejs`, `_scan_status.ejs`, `_tuner_status.ejs`) are reused both for full-page renders and as htmx swap targets returned directly from POST/GET routes (e.g. `POST /channels/flag` re-renders and returns just `_channel_row.ejs` for the one changed row).
 
 **Gotcha already hit once:** query-string values containing a literal `+` must be percent-encoded (`%2B`) in `hx-post`/`href` URLs — an unencoded `+` decodes to a space by the time it reaches `req.query`, silently corrupting values like the favorite mode. See `views/_channel_row.ejs` for the fixed pattern (`encodeURIComponent(...)` around every dynamic query value, not just the "obviously unsafe" ones).
+
+## Roku client (`roku/`)
+
+BrightScript + SceneGraph, sideloaded via Developer Mode (Roku killed private
+channels in 2022, so there's no publish-free distribution path). `roku/README.md`
+covers deployment; `roku/deploy.sh` zips and uploads.
+
+Things that will bite:
+
+- **All network I/O must happen inside `Task` nodes** (`GuideTask`,
+  `StreamStartTask`), never the render thread. Blocking the render thread is the
+  usual cause of an app that hangs on launch.
+- **The zip's `manifest` must be at the archive root.** Zipping the `roku/` folder
+  itself silently produces a package Roku rejects; `deploy.sh` asserts this.
+- **Re-uploading an identical build is refused** — bump `build_version` in
+  `roku/manifest`.
+- **`TimeGrid`'s `PLAYSTART`/`PLAYDURATION` semantics are ambiguous in Roku's own
+  docs.** The general Content Meta-Data page defines `PlayStart` as a float
+  *seek offset* and doesn't define `PlayDuration` at all, while the TimeGrid page
+  reuses both names for wall-clock start / program length and calls them
+  `roDateTime`. We pass plain epoch seconds. That conversion is deliberately
+  isolated to `buildGuideContent()` in `roku/components/GuideScreen.brs` — if the
+  guide renders with wrong/absent program blocks, change it there first.
+- **Don't collapse the playback handshake** (POST `/start` → poll `/ready` →
+  then set the Video node's URL). The `.m3u8` does not exist until ffmpeg spins
+  up; pointing the player at it early fails.
+- **Server error strings are not screen-safe.** `/stream/<ch>/ready` returns an
+  ffmpeg stderr tail up to 4000 chars. `PlayerScreen.brs` logs it in full via
+  `print` (visible on `telnet <roku-ip> 8085`) and shows a truncated line on TV.
 
 ## Screenshots
 

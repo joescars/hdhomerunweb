@@ -11,6 +11,7 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 - **Detect Channels** (`/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
 - **System Status** (`/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
 - **Light/dark mode** toggle in the navbar, remembered across visits.
+- **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server: now/next channel guide and live playback on your TV. See [roku/README.md](roku/README.md) for setup and sideloading instructions.
 
 ## Screenshots
 
@@ -78,7 +79,20 @@ server.js              Express app entrypoint
 src/hdhomerun.js        Client for the HDHomeRun HTTP API
 src/guide.js            Client for Silicondust's cloud Guide API
 src/stream.js           Manages per-channel ffmpeg/HLS transcode sessions
-src/routes/            Route handlers for each page
+src/routes/            Route handlers (HTML pages + /api/* JSON)
 views/                 EJS templates (server-rendered)
 public/                Static assets (CSS, favicon)
+roku/                  Roku (BrightScript/SceneGraph) client - see roku/README.md
 ```
+
+### JSON API
+
+Alongside the HTML pages, the server exposes JSON used by the Roku client (and
+useful for any other client):
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/guide` | Channels with now/next programs, pre-shaped for a TV guide: non-overlapping program times, unsubscribed/hidden channels filtered out, no null fields. |
+| `POST /stream/<ch>/start` | Begin tuning + transcoding a channel (returns 202 immediately). |
+| `GET /stream/<ch>/ready` | `{"ready":bool,"failed":bool,"error":"..."}` — poll until ready. |
+| `GET /stream/<ch>/stream.m3u8` | The HLS playlist, once ready. |
