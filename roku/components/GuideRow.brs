@@ -26,7 +26,7 @@ sub onContentChange(event as object)
         m.channelLogo.uri = ""
         m.channelLogo.visible = false
     end if
-    m.channelLabel.text = content.ChannelNumber + " " + content.ChannelName
+    m.channelLabel.text = content.ChannelName
     m.firstLabel.text = content.FirstTitle
     m.secondLabel.text = content.SecondTitle
     m.thirdLabel.text = content.ThirdTitle
