@@ -17,7 +17,7 @@ router.get('/guide/grid', async (req, res) => {
   const now = Math.floor(Date.now() / 1000);
   try {
     const [guideChannels, lineup] = await Promise.all([
-      guide.getGuide({ duration: 4 }),
+      guide.getGuide({ duration: 8 }),
       hdhr.getLineup().catch(() => []),
     ]);
     const channels = guide.mergeFavorites(guideChannels, lineup);

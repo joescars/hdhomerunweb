@@ -1,4 +1,4 @@
-<%- include('_header', { title: 'TV Guide' }) %>
+<%- include('_header', { title: 'TV Guide', fluid: true }) %>
 
 <div class="d-flex align-items-center mb-3">
   <h1 class="h4 mb-0 flex-grow-1">TV Guide</h1>
@@ -16,20 +16,22 @@
 <% } %>
 
 <style>
-  .guide-scroll { overflow: auto; max-height: 75vh; border: 1px solid var(--bs-border-color); border-radius: 8px; -webkit-overflow-scrolling: touch; }
+  :root { --guide-col-width: 72px; }
+  @media (min-width: 768px) { :root { --guide-col-width: 96px; } }
+  .guide-scroll { overflow: auto; max-height: calc(100vh - 11rem); border: 1px solid var(--bs-border-color); border-radius: 8px; -webkit-overflow-scrolling: touch; }
   .guide-inner { position: relative; }
   .guide-header-row { display: flex; position: sticky; top: 0; z-index: 3; background: var(--bs-body-bg); border-bottom: 1px solid var(--bs-border-color); }
-  .guide-header-spacer { position: sticky; left: 0; z-index: 4; width: 84px; flex: 0 0 84px; background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); font-weight: 600; font-size: .8rem; display: flex; align-items: center; padding: .5rem; }
-  .guide-header-track { position: relative; flex: 0 0 auto; height: 2.25rem; }
-  .guide-time-label { position: absolute; top: 0; height: 100%; display: flex; align-items: center; padding-left: .5rem; font-weight: 600; font-size: .85rem; border-left: 1px solid var(--bs-border-color); white-space: nowrap; }
+  .guide-header-spacer { position: sticky; left: 0; z-index: 4; width: var(--guide-col-width); flex: 0 0 var(--guide-col-width); background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); font-weight: 600; font-size: .78rem; display: flex; align-items: center; padding: .35rem; }
+  .guide-header-track { position: relative; flex: 0 0 auto; height: 1.85rem; }
+  .guide-time-label { position: absolute; top: 0; height: 100%; display: flex; align-items: center; padding-left: .5rem; font-weight: 600; font-size: .8rem; border-left: 1px solid var(--bs-border-color); white-space: nowrap; }
   .guide-row { display: flex; border-bottom: 1px solid var(--bs-border-color); }
-  .guide-channel-cell { position: sticky; left: 0; z-index: 2; width: 84px; flex: 0 0 84px; background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem; padding: .35rem .2rem; cursor: pointer; text-align: center; }
-  .guide-channel-cell img { max-width: 100%; max-height: 22px; object-fit: contain; }
-  .guide-channel-number { font-size: .75rem; font-weight: 700; }
-  .guide-track { position: relative; flex: 0 0 auto; min-height: 4.5rem; }
-  .guide-block { position: absolute; top: 3px; bottom: 3px; overflow: hidden; border: 1px solid var(--bs-border-color); border-radius: 4px; padding: .3rem .45rem; background: var(--bs-tertiary-bg); font-size: .8rem; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
+  .guide-channel-cell { position: sticky; left: 0; z-index: 2; width: var(--guide-col-width); flex: 0 0 var(--guide-col-width); background: var(--bs-body-bg); border-right: 1px solid var(--bs-border-color); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; padding: .25rem .15rem; cursor: pointer; text-align: center; }
+  .guide-channel-cell img { max-width: 100%; max-height: 20px; object-fit: contain; }
+  .guide-channel-number { font-size: .72rem; font-weight: 700; }
+  .guide-track { position: relative; flex: 0 0 auto; min-height: 3rem; }
+  .guide-block { position: absolute; top: 2px; bottom: 2px; overflow: hidden; border: 1px solid var(--bs-border-color); border-radius: 4px; padding: .2rem .4rem; background: var(--bs-tertiary-bg); font-size: .78rem; line-height: 1.5; cursor: pointer; white-space: nowrap; text-overflow: ellipsis; }
   .guide-block:hover { filter: brightness(1.15); }
-  .guide-block.is-now { background: var(--bs-primary); color: #fff; border-color: var(--bs-primary); }
+  .guide-block.is-now { background: var(--bs-tertiary-bg); border-color: var(--bs-primary); border-left: 3px solid var(--bs-primary); padding-left: calc(.4rem - 2px); font-weight: 600; }
   .guide-now-line { position: absolute; top: 0; bottom: 0; width: 2px; background: #dc3545; z-index: 5; pointer-events: none; }
 </style>
 
@@ -38,11 +40,37 @@
   var data = <%- JSON.stringify(channels) %>;
   var now = <%= now %>;
   var container = document.getElementById('guide-inner');
-  if (!container) return;
+  var scrollParent = document.querySelector('.guide-scroll');
+  if (!container || !scrollParent) return;
 
-  var PX_PER_MIN = 5;
-  var RANGE_MINUTES = 240;
+  var colWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--guide-col-width')) || 84;
+
+  // Longest airing across all channels, so we never build a range wider than
+  // the data we actually have (guide route fetches an 8h window).
+  var dataEnd = now;
+  data.forEach(function (ch) {
+    (ch.Guide || []).forEach(function (airing) {
+      if (airing.EndTime > dataEnd) dataEnd = airing.EndTime;
+    });
+  });
+
+  // On mobile, keep the original fixed-density 240-minute horizontally
+  // scrollable window. On wider viewports, stretch both the pixels-per-minute
+  // and the time range to fill the available width, up to the data we have.
+  var MOBILE_BREAKPOINT = 768;
+  var PX_PER_MIN, RANGE_MINUTES;
   var rangeStart = now - (now % 1800); // align to the current or previous 30-minute mark
+  var availableWidth = scrollParent.clientWidth - colWidth;
+
+  if (window.innerWidth >= MOBILE_BREAKPOINT && availableWidth > 0) {
+    var dataMinutes = Math.max(120, Math.ceil((dataEnd - rangeStart) / 60));
+    PX_PER_MIN = Math.min(8, Math.max(3.5, availableWidth / Math.min(dataMinutes, 360)));
+    RANGE_MINUTES = Math.min(dataMinutes, Math.max(240, Math.round((availableWidth / PX_PER_MIN) / 30) * 30));
+  } else {
+    PX_PER_MIN = 5;
+    RANGE_MINUTES = 240;
+  }
+
   var rangeEnd = rangeStart + RANGE_MINUTES * 60;
   var trackWidth = RANGE_MINUTES * PX_PER_MIN;
 
@@ -127,15 +155,12 @@
 
   var nowLine = document.createElement('div');
   nowLine.className = 'guide-now-line';
-  nowLine.style.left = (84 + minutesFromStart(now) * PX_PER_MIN) + 'px';
+  nowLine.style.left = (colWidth + minutesFromStart(now) * PX_PER_MIN) + 'px';
   container.style.position = 'relative';
   container.appendChild(nowLine);
 
   // Scroll the "now" line into view on load.
-  var scrollParent = container.closest('.guide-scroll');
-  if (scrollParent) {
-    scrollParent.scrollLeft = Math.max(0, minutesFromStart(now) * PX_PER_MIN - 60);
-  }
+  scrollParent.scrollLeft = Math.max(0, minutesFromStart(now) * PX_PER_MIN - 60);
 })();
 </script>
 
