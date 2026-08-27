@@ -15,25 +15,30 @@
     <children>
         <Timer id="refreshTimer" repeat="true" duration="300" />
 
-        <TimeGrid id="timeGrid"
-            translation="[0, 0]"
-            nowNextMode="false"
-            duration="7200"
-            channelInfoWidth="300"
-            channelInfoColumnLabel="Channels"
-            infoGridGap="4"
-            programHorizMargin="18"
-            programTitleColor="0xE2E8F0FF"
-            programTitleFocusedColor="0x0A1428FF"
-            fillProgramGaps="true"
-            automaticLoadingDataFeedback="false"
-            channelNoDataText="No program data" />
+        <Group id="guideHeader" translation="[0, 0]">
+            <Rectangle width="1920" height="50" color="0x142238FF" />
+            <Label translation="[24, 0]" width="276" height="50" text="Channel" font="font:SmallBoldSystemFont" vertAlign="center" />
+            <Label id="firstTimeLabel" translation="[324, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
+            <Label id="secondTimeLabel" translation="[804, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
+            <Label id="thirdTimeLabel" translation="[1284, 0]" width="612" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
+        </Group>
 
-        <Group id="detailPanel" translation="[0, 520]">
+        <MarkupGrid id="guideGrid"
+            translation="[0, 52]"
+            itemComponentName="GuideRow"
+            itemSize="[1920, 60]"
+            itemSpacing="[0, 2]"
+            numColumns="1"
+            numRows="13"
+            clippingRect="[0, 0, 1920, 806]"
+            drawFocusFeedback="false"
+            vertFocusAnimationStyle="fixedFocusWrap" />
+
+        <Group id="detailPanel" translation="[0, 860]">
             <Rectangle
                 translation="[0, 0]"
                 width="1920"
-                height="560"
+                height="140"
                 color="0x0A1428FF" />
             <Rectangle
                 translation="[0, 0]"
@@ -41,24 +46,27 @@
                 height="3"
                 color="0x38BDF8FF" />
             <Label id="detailTitle"
-                translation="[40, 42]"
-                width="1840"
-                height="60"
+                translation="[28, 14]"
+                width="1864"
+                height="38"
+                font="font:SmallSystemFont"
                 color="0xFFFFFFFF" />
             <Label id="detailSynopsis"
-                translation="[40, 112]"
-                width="1840"
-                height="180"
+                translation="[28, 54]"
+                width="1864"
+                height="72"
+                font="font:SmallSystemFont"
                 wrap="true"
                 color="0xCCCCCCFF" />
-            <Label id="hintLabel"
-                text="Options ( * ) : Settings"
-                translation="[1480, 500]"
-                width="380"
-                height="40"
-                horizAlign="right"
-                color="0xAAAAAAFF" />
         </Group>
+
+        <Label id="hintLabel"
+            text="Options ( * ) : Settings"
+            translation="[1480, 1020]"
+            width="380"
+            height="40"
+            horizAlign="right"
+            color="0xAAAAAAFF" />
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->
         <Rectangle id="statusBg"

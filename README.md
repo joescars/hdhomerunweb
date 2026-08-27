@@ -6,7 +6,7 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 
 - **System Menu** (`/`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
 - **TV Guide** — live program guide (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required. Two views: a cable-style channel × time grid (`/guide/grid`) with a live "now" line — tap any program to start watching — and a per-channel list (`/guide`).
-- **Watch Live TV** (`/watch/:channel`) — plays a channel directly in the browser. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js). Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
+- **Watch Live TV** (`/watch/:channel`) - plays a channel directly in the browser. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to HEVC/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js). Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
 - **Channel Lineup** (`/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality and codec info. Toggle filters for Favorites, HD, and Show Hidden, plus one-tap buttons to favorite or hide any channel (synced back to the device itself).
 - **Detect Channels** (`/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
 - **System Status** (`/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
@@ -60,7 +60,7 @@ Watching a channel requires an Intel iGPU with Quick Sync Video (QSV) support on
 If you hit issues (stream never starts, or `docker logs hdhomerun-web` shows VAAPI/QSV errors), it's almost always the media driver:
 
 - Newer Intel iGPUs (e.g. N100/N150 "Alder Lake-N"/"Twin Lake") aren't recognized by the media driver version shipped in Debian's stable repos — VAAPI init fails outright. This is why the image installs [`jellyfin-ffmpeg`](https://github.com/jellyfin/jellyfin-ffmpeg) instead of stock `ffmpeg`: it bundles its own current Intel media driver rather than relying on the OS package.
-- You can sanity-check hardware acceleration directly: `docker exec hdhomerun-web ffmpeg -hwaccel qsv -hwaccel_output_format qsv -c:v mpeg2_qsv -i "http://<device-ip>:5004/auto/v<channel>" -c:v h264_qsv -f null -` should report `va_openDriver() returns 0` and start encoding frames.
+- You can sanity-check hardware acceleration directly: `docker exec hdhomerun-web ffmpeg -hwaccel qsv -hwaccel_output_format qsv -c:v mpeg2_qsv -i "http://<device-ip>:5004/auto/v<channel>" -c:v hevc_qsv -f null -` should report `va_openDriver() returns 0` and start encoding frames.
 - No Intel GPU (or a system that doesn't support QSV) means live playback won't work; everything else in the app (guide, lineup, scan, status) is unaffected.
 
 ## Local development (without Docker)

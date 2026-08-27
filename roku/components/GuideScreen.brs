@@ -1,31 +1,33 @@
-' GuideScreen - hosts the channel-by-time EPG, kicks off channel playback,
+' GuideScreen - hosts the compact channel guide, kicks off channel playback,
 ' and opens Settings. All network I/O is delegated to GuideTask.
 
 sub init()
-    m.timeGrid = m.top.findNode("timeGrid")
+    m.guideGrid = m.top.findNode("guideGrid")
     m.hintLabel = m.top.findNode("hintLabel")
     m.detailTitle = m.top.findNode("detailTitle")
     m.detailSynopsis = m.top.findNode("detailSynopsis")
     m.statusBg = m.top.findNode("statusBg")
     m.statusLabel = m.top.findNode("statusLabel")
     m.refreshTimer = m.top.findNode("refreshTimer")
+    m.firstTimeLabel = m.top.findNode("firstTimeLabel")
+    m.secondTimeLabel = m.top.findNode("secondTimeLabel")
+    m.thirdTimeLabel = m.top.findNode("thirdTimeLabel")
 
     m.hasLoadedOnce = false
     m.guideStarted = false
 
-    m.timeGrid.observeField("channelSelected", "onChannelSelected")
-    m.timeGrid.observeField("programSelected", "onProgramSelected")
-    m.timeGrid.observeField("programFocusedDetails", "onProgramFocusedDetails")
+    m.guideGrid.observeField("itemSelected", "onChannelSelected")
+    m.guideGrid.observeField("itemFocused", "onChannelFocused")
 
     m.refreshTimer.observeField("fire", "onRefreshTimerFire")
 end sub
 
 ' Public - callable from MainScene whenever this screen becomes the visible
 ' top-of-stack screen (initial show, or returning from Player/Settings).
-' Focus must land on the TimeGrid itself, not this screen's outer Group, or
+' Focus must land on the guide itself, not this screen's outer Group, or
 ' remote directional/OK keys won't reach the grid.
 sub onScreenFocus()
-    m.timeGrid.setFocus(true)
+    m.guideGrid.setFocus(true)
     if m.guideStarted = false
         m.guideStarted = true
         m.refreshTimer.control = "start"
@@ -80,45 +82,81 @@ sub onGuideResult(event as object)
     m.hasLoadedOnce = true
     m.hintLabel.text = "Options ( * ) : Settings"
 
-    gridTime = result.serverTime
-    if gridTime = invalid or gridTime <= 0
+    serverTime = result.serverTime
+    if serverTime = invalid
         now = CreateObject("roDateTime")
-        gridTime = now.AsSeconds()
+        serverTime = now.AsSeconds()
     end if
-    m.timeGrid.contentStartTime = gridTime - (gridTime mod 1800)
-    m.timeGrid.leftEdgeTargetTime = gridTime
-    m.timeGrid.content = buildGuideContent(result.channels)
+    slotStart = serverTime - (serverTime mod 1800)
+    m.firstTimeLabel.text = formatGuideTime(slotStart)
+    m.secondTimeLabel.text = formatGuideTime(slotStart + 1800)
+    m.thirdTimeLabel.text = formatGuideTime(slotStart + 3600)
+
+    m.guideGrid.content = buildGuideContent(result.channels, serverTime, slotStart)
+    updateFocusedDetails(0)
 end sub
 
-function buildGuideContent(channels as object) as object
+function buildGuideContent(channels as object, serverTime as integer, slotStart as integer) as object
     root = CreateObject("roSGNode", "ContentNode")
 
     for each ch in channels
         chNode = root.CreateChild("ContentNode")
-        chNode.title = ch.name
+        current = findProgramAt(ch.programs, serverTime)
+        firstSlot = findProgramAt(ch.programs, slotStart)
+        secondSlot = findProgramAt(ch.programs, slotStart + 1800)
+        thirdSlot = findProgramAt(ch.programs, slotStart + 3600)
+
+        detailsTitle = current.title
+        if current.episodeTitle <> ""
+            detailsTitle = detailsTitle + " - " + current.episodeTitle
+        end if
+
         chNode.AddFields({
             ChannelNumber: ch.number
+            ChannelName: ch.name
+            LogoUri: ch.logo
             StreamPath: ch.streamPath
             Favorite: ch.favorite
+            FirstTitle: firstSlot.title
+            SecondTitle: secondSlot.title
+            ThirdTitle: thirdSlot.title
+            DetailsTitle: detailsTitle
+            Synopsis: current.synopsis
         })
-
-        for each pr in ch.programs
-            prNode = chNode.CreateChild("ContentNode")
-            prNode.title = pr.title
-            ' PLAYSTART / PLAYDURATION are "time" fields; per Roku docs/samples
-            ' these accept plain integer seconds (epoch seconds for PLAYSTART,
-            ' seconds for PLAYDURATION) the same way contentStartTime does -
-            ' no explicit roDateTime object construction is required.
-            prNode.PLAYSTART = pr.start
-            prNode.PLAYDURATION = pr.duration
-            prNode.AddFields({
-                EpisodeTitle: pr.episodeTitle
-                Synopsis: pr.synopsis
-            })
-        end for
     end for
 
     return root
+end function
+
+function findProgramAt(programs as object, timestamp as integer) as object
+    for each program in programs
+        if program.start <= timestamp and program.start + program.duration > timestamp
+            return {
+                title: program.title
+                episodeTitle: program.episodeTitle
+                synopsis: program.synopsis
+            }
+        end if
+    end for
+    return { title: "", episodeTitle: "", synopsis: "" }
+end function
+
+function formatGuideTime(epochSeconds as integer) as string
+    time = CreateObject("roDateTime")
+    time.FromSeconds(epochSeconds)
+    time.ToLocalTime()
+
+    hour = time.GetHours()
+    minute = time.GetMinutes()
+    suffix = "AM"
+    if hour >= 12 then suffix = "PM"
+
+    displayHour = hour mod 12
+    if displayHour = 0 then displayHour = 12
+
+    minuteText = minute.ToStr()
+    if minute < 10 then minuteText = "0" + minuteText
+    return displayHour.ToStr() + ":" + minuteText + " " + suffix
 end function
 
 ' --- selection handling ---------------------------------------------------
@@ -128,44 +166,30 @@ sub onChannelSelected(event as object)
     tuneToChannelIndex(idx)
 end sub
 
-sub onProgramSelected(event as object)
-    ' programSelected only gives the program's child index; the row it
-    ' belongs to is whichever channel currently has focus.
-    chIdx = m.timeGrid.channelFocused
-    tuneToChannelIndex(chIdx)
+sub onChannelFocused(event as object)
+    updateFocusedDetails(event.getData())
 end sub
 
 sub tuneToChannelIndex(chIdx as integer)
-    content = m.timeGrid.content
+    content = m.guideGrid.content
     if content = invalid then return
     chNode = content.getChild(chIdx)
     if chNode = invalid then return
 
     m.top.launchPlayer = {
         channelNumber: chNode.ChannelNumber
-        channelName: chNode.title
+        channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
     }
 end sub
 
-sub onProgramFocusedDetails(event as object)
-    details = event.getData()
-    if details = invalid then return
-
-    content = m.timeGrid.content
+sub updateFocusedDetails(index as integer)
+    content = m.guideGrid.content
     if content = invalid then return
-
-    chNode = content.getChild(details.focusChannelIndex)
+    chNode = content.getChild(index)
     if chNode = invalid then return
-    prNode = chNode.getChild(details.focusIndex)
-    if prNode = invalid then return
-
-    title = prNode.title
-    if prNode.EpisodeTitle <> invalid and prNode.EpisodeTitle <> ""
-        title = title + " - " + prNode.EpisodeTitle
-    end if
-    m.detailTitle.text = title
-    m.detailSynopsis.text = prNode.Synopsis
+    m.detailTitle.text = chNode.DetailsTitle
+    m.detailSynopsis.text = chNode.Synopsis
 end sub
 
 ' --- status overlay ---------------------------------------------------------

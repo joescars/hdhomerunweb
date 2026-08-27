@@ -115,7 +115,7 @@ Roku app                     hdhomerun-web server              HDHomeRun
    |-- GET  /stream/3.1/ready ------->|   (poll every 500ms)         |
    |<-- {"ready":true} ---------------|                             |
    |                                  |                             |
-   |-- GET /stream/3.1/stream.m3u8 -->|   MPEG2/AC3 -> H.264/AAC HLS |
+   |-- GET /stream/3.1/stream.m3u8 -->|   MPEG2/AC3 -> HEVC/AAC HLS  |
    |<== HLS segments =================|<============================|
 ```
 
@@ -134,8 +134,8 @@ manifest                     app metadata, icons, splash
 source/main.brs              entry point
 components/
   MainScene.*                screen stack, registry, server URL
-  GuideScreen.*              channel-by-time TimeGrid + detail panel
-  ChannelInfo.*              left-column channel renderer for TimeGrid
+  GuideScreen.*              compact multi-column channel guide
+  GuideRow.*                 custom guide row renderer
   PlayerScreen.*             Video node + tuning overlay
   SettingsScreen.*           server URL editor
   GuideTask.*                fetches /api/guide off the render thread

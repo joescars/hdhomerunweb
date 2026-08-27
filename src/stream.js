@@ -29,7 +29,7 @@ function spawnFfmpeg(channel) {
     '-hwaccel', 'qsv', '-hwaccel_output_format', 'qsv', '-c:v', 'mpeg2_qsv',
     '-i', sourceUrl,
     '-map', '0:v:0', '-map', '0:a:0',
-    '-c:v', 'h264_qsv', '-global_quality', '23', '-look_ahead', '0', '-forced_idr', '1',
+    '-c:v', 'hevc_qsv', '-global_quality', '21', '-look_ahead', '0', '-forced_idr', '1',
     '-g', '60', '-force_key_frames', 'expr:eq(n,0)+gte(t,n_forced*2)',
     '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
     '-f', 'hls',
