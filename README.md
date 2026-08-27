@@ -2,6 +2,8 @@
 
 A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust.com/) device, meant as a friendlier alternative to the device's built-in web interface. It talks to your HDHomeRun over its local HTTP API and runs as a small self-hosted Docker container.
 
+This repo also includes a sideloadable [Roku client](roku/) for watching live TV on your TV, powered by the same server.
+
 ## Features
 
 - **System Menu** (`/`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
