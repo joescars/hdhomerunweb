@@ -63,19 +63,28 @@ Things that will bite:
   itself silently produces a package Roku rejects; `deploy.sh` asserts this.
 - **Re-uploading an identical build is refused** — bump `build_version` in
   `roku/manifest`.
-- **`TimeGrid`'s `PLAYSTART`/`PLAYDURATION` semantics are ambiguous in Roku's own
-  docs.** The general Content Meta-Data page defines `PlayStart` as a float
-  *seek offset* and doesn't define `PlayDuration` at all, while the TimeGrid page
-  reuses both names for wall-clock start / program length and calls them
-  `roDateTime`. We pass plain epoch seconds. That conversion is deliberately
-  isolated to `buildGuideContent()` in `roku/components/GuideScreen.brs` — if the
-  guide renders with wrong/absent program blocks, change it there first.
+- **The guide is a custom `RowList` of `GuideRow` nodes, not a `TimeGrid`.**
+  Roku's `TimeGrid` component was dropped in favor of hand-rolled rows because
+  its `PLAYSTART`/`PLAYDURATION` semantics are ambiguous in Roku's own docs. All
+  epoch-seconds → wall-clock conversion now lives in `buildGuideContent()` and
+  `formatGuideTime()` in `roku/components/GuideScreen.brs` — if the guide
+  renders with wrong/absent program blocks or times, change it there first.
+  `GuideRow.brs`/`GuideRow.xml` render one channel's logo, name, and three
+  half-hour program titles per row; `GuideScreen.brs` rebuilds the whole
+  `ContentNode` tree on every refresh rather than patching individual rows.
 - **Don't collapse the playback handshake** (POST `/start` → poll `/ready` →
   then set the Video node's URL). The `.m3u8` does not exist until ffmpeg spins
   up; pointing the player at it early fails.
 - **Server error strings are not screen-safe.** `/stream/<ch>/ready` returns an
   ffmpeg stderr tail up to 4000 chars. `PlayerScreen.brs` logs it in full via
   `print` (visible on `telnet <roku-ip> 8085`) and shows a truncated line on TV.
+- **Transcoding target is HEVC, not MPEG-2 passthrough.** `src/stream.js` uses
+  QSV hardware decode (`mpeg2_qsv`) and HEVC encode (`hevc_qsv`, global quality
+  21) because Roku's MPEG-2 support is inconsistent across the device fleet and
+  raw MPEG-TS from the tuner isn't a supported Roku stream format at all. This
+  is shared by both clients (`src/stream.js` has no Roku-specific branch) — if
+  you change codec/quality here, check playback on both the browser player and
+  `PlayerScreen.brs`.
 
 ## Screenshots
 

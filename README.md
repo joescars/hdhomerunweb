@@ -19,6 +19,10 @@ A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust
 |---|---|---|
 | ![TV Guide grid, dark mode](docs/screenshot-dark.png) | ![System Status, light mode](docs/screenshot-light.png) | ![Live channel playback](docs/screenshot-watch.png) |
 
+| Roku channel guide |
+|---|
+| ![Roku channel guide](docs/screenshot-roku-guide.jpg) |
+
 ## Stack
 
 - Node.js + Express, server-rendered with EJS (no SPA build step)
