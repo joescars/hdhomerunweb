@@ -1,5 +1,5 @@
-' GuideScreen - hosts the TimeGrid EPG, kicks off channel playback, and
-' opens Settings. All network I/O is delegated to GuideTask.
+' GuideScreen - hosts the channel-by-time EPG, kicks off channel playback,
+' and opens Settings. All network I/O is delegated to GuideTask.
 
 sub init()
     m.timeGrid = m.top.findNode("timeGrid")
@@ -11,17 +11,13 @@ sub init()
     m.refreshTimer = m.top.findNode("refreshTimer")
 
     m.hasLoadedOnce = false
+    m.guideStarted = false
 
     m.timeGrid.observeField("channelSelected", "onChannelSelected")
     m.timeGrid.observeField("programSelected", "onProgramSelected")
     m.timeGrid.observeField("programFocusedDetails", "onProgramFocusedDetails")
 
     m.refreshTimer.observeField("fire", "onRefreshTimerFire")
-    m.refreshTimer.control = "start"
-
-    onScreenFocus()
-
-    refreshGuide()
 end sub
 
 ' Public - callable from MainScene whenever this screen becomes the visible
@@ -30,6 +26,11 @@ end sub
 ' remote directional/OK keys won't reach the grid.
 sub onScreenFocus()
     m.timeGrid.setFocus(true)
+    if m.guideStarted = false
+        m.guideStarted = true
+        m.refreshTimer.control = "start"
+        refreshGuide()
+    end if
 end sub
 
 ' Public - callable from MainScene (initial load, resume signal, settings save).
@@ -78,6 +79,14 @@ sub onGuideResult(event as object)
     hideStatus()
     m.hasLoadedOnce = true
     m.hintLabel.text = "Options ( * ) : Settings"
+
+    gridTime = result.serverTime
+    if gridTime = invalid or gridTime <= 0
+        now = CreateObject("roDateTime")
+        gridTime = now.AsSeconds()
+    end if
+    m.timeGrid.contentStartTime = gridTime - (gridTime mod 1800)
+    m.timeGrid.leftEdgeTargetTime = gridTime
     m.timeGrid.content = buildGuideContent(result.channels)
 end sub
 
@@ -87,7 +96,6 @@ function buildGuideContent(channels as object) as object
     for each ch in channels
         chNode = root.CreateChild("ContentNode")
         chNode.title = ch.name
-        chNode.HDSMALLICONURL = ch.logo
         chNode.AddFields({
             ChannelNumber: ch.number
             StreamPath: ch.streamPath
@@ -103,7 +111,6 @@ function buildGuideContent(channels as object) as object
             ' no explicit roDateTime object construction is required.
             prNode.PLAYSTART = pr.start
             prNode.PLAYDURATION = pr.duration
-            prNode.HDSMALLICONURL = pr.image
             prNode.AddFields({
                 EpisodeTitle: pr.episodeTitle
                 Synopsis: pr.synopsis

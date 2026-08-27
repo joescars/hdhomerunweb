@@ -3,6 +3,8 @@
     <interface>
         <!-- callable from main.brs's message loop -->
         <function name="onSystemResumeSignal" />
+        <function name="writeServerUrl" />
     </interface>
+    <script type="text/brightscript" uri="DeployConfig.brs" />
     <script type="text/brightscript" uri="MainScene.brs" />
 </component>

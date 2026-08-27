@@ -7,20 +7,26 @@ sub init()
     m.spinner = m.top.findNode("spinner")
     m.statusLabel = m.top.findNode("statusLabel")
     m.hintLabel = m.top.findNode("hintLabel")
+    m.tuningStarted = false
 
     m.video.observeField("state", "onVideoStateChange")
-
-    onScreenFocus()
-
-    startTuning()
 end sub
 
 ' Public - callable from MainScene when this screen becomes top-of-stack.
 sub onScreenFocus()
     m.top.setFocus(true)
+    if m.tuningStarted = false
+        m.tuningStarted = true
+        startTuning()
+    end if
 end sub
 
 sub startTuning()
+    if m.top.serverUrl = invalid or m.top.serverUrl = "" or m.top.channelNumber = invalid or m.top.channelNumber = ""
+        showOverlay("Missing server URL or channel number", false)
+        return
+    end if
+
     showOverlay("Tuning " + m.top.channelName + "...", true)
 
     task = CreateObject("roSGNode", "StreamStartTask")

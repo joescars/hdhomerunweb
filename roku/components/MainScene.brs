@@ -12,17 +12,35 @@ end sub
 
 ' --- registry -------------------------------------------------------------
 
+function normalizeServerUrl(url as dynamic) as string
+    if url = invalid then return ""
+    text = url.Trim()
+    if text = "" then return ""
+    if Right(text, 1) = "/" then return Left(text, Len(text) - 1)
+    return text
+end function
+
 function readServerUrl() as string
-    defaultUrl = "http://192.168.68.121:8080"
+    defaultUrl = GetPackagedServerUrl()
     sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return defaultUrl
     if sec.Exists("serverUrl")
         stored = sec.Read("serverUrl")
-        if stored <> invalid and stored <> ""
-            return stored
-        end if
+        normalized = normalizeServerUrl(stored)
+        if normalized <> "" then return normalized
     end if
     return defaultUrl
 end function
+
+sub writeServerUrl(url as string)
+    normalized = normalizeServerUrl(url)
+    if normalized = "" then return
+
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return
+    sec.Write("serverUrl", normalized)
+    sec.Flush()
+end sub
 
 ' --- screen stack -----------------------------------------------------------
 
@@ -72,6 +90,8 @@ sub onLaunchPlayer(event as object)
     data = event.getData()
     if data = invalid then return
 
+    if m.serverUrl = invalid or m.serverUrl = "" then m.serverUrl = readServerUrl()
+
     screen = CreateObject("roSGNode", "PlayerScreen")
     screen.serverUrl = m.serverUrl
     screen.channelNumber = data.channelNumber
@@ -98,9 +118,14 @@ end sub
 sub onSettingsSaved(event as object)
     newUrl = event.getData()
     if newUrl = invalid or newUrl = "" then return
-    m.serverUrl = newUrl
+
+    validated = normalizeServerUrl(newUrl)
+    if validated = "" then return
+
+    m.serverUrl = validated
+    writeServerUrl(validated)
     if m.guideScreen <> invalid
-        m.guideScreen.serverUrl = newUrl
+        m.guideScreen.serverUrl = validated
         m.guideScreen.callFunc("refreshGuide")
     end if
 end sub

@@ -77,7 +77,8 @@ function trimTrailingSlash(url as string) as string
 end function
 
 sub saveServerUrl(url as string)
-    sec = CreateObject("roRegistrySection", "hdhrweb")
-    sec.Write("serverUrl", url)
-    sec.Flush()
+    scene = m.top.getScene()
+    if scene <> invalid
+        scene.callFunc("writeServerUrl", url)
+    end if
 end sub

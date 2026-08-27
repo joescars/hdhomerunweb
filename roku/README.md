@@ -1,7 +1,10 @@
-# HDHomeRun Web — Roku client
+---
+title: HDHomeRun Web Roku client
+description: Deploy and configure the Roku client for an HDHomeRun Web server
+---
 
 A Roku app for the `hdhomerun-web` server: browse a now/next channel guide and
-watch live TV on your TV. It's a thin client — the server does all the tuning
+watch live TV on your TV. It's a thin client: the server does all the tuning
 and transcoding, and the Roku just plays the resulting HLS stream.
 
 > **This is meant to be sideloaded, not published.** Roku discontinued private
@@ -33,16 +36,15 @@ After it reboots, note the IP shown on that screen (also in
 
 ## 2. Point the app at your server
 
-The server URL is baked in as a default in
-[`components/MainScene.brs`](components/MainScene.brs):
+Set the server URL in `roku/.env`:
 
-```brightscript
-defaultUrl = "http://192.168.68.121:8080"
+```bash
+HDHOMERUN_WEB_URL=http://192.168.1.100:8080
 ```
 
-Edit that if your server lives elsewhere. You can also change it at runtime from
-the app (**Options / `*`** on the guide screen → Settings); that value is saved
-to the Roku registry and takes precedence over the baked-in default.
+`deploy.sh` embeds this URL into the packaged app. You can also change it at
+runtime from the app (**Options / `*`** on the guide screen, then Settings).
+The value saved to the Roku registry takes precedence over the packaged URL.
 
 ## 3. Deploy
 
@@ -57,6 +59,7 @@ cp .env.example .env      # then edit it
 ```bash
 ROKU_IP=192.168.1.50
 ROKU_DEV_PASSWORD=your-developer-mode-password
+HDHOMERUN_WEB_URL=http://192.168.1.100:8080
 ```
 
 Or pass them inline:
@@ -131,7 +134,7 @@ manifest                     app metadata, icons, splash
 source/main.brs              entry point
 components/
   MainScene.*                screen stack, registry, server URL
-  GuideScreen.*              TimeGrid (nowNextMode) + detail panel
+  GuideScreen.*              channel-by-time TimeGrid + detail panel
   ChannelInfo.*              left-column channel renderer for TimeGrid
   PlayerScreen.*             Video node + tuning overlay
   SettingsScreen.*           server URL editor

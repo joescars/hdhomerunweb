@@ -17,34 +17,47 @@
 
         <TimeGrid id="timeGrid"
             translation="[0, 0]"
-            width="1920"
-            height="820"
-            nowNextMode="true"
-            channelInfoComponentName="ChannelInfo"
-            channelInfoWidth="220"
+            nowNextMode="false"
+            duration="7200"
+            channelInfoWidth="300"
+            channelInfoColumnLabel="Channels"
+            infoGridGap="4"
+            programHorizMargin="18"
+            programTitleColor="0xE2E8F0FF"
+            programTitleFocusedColor="0x0A1428FF"
             fillProgramGaps="true"
+            automaticLoadingDataFeedback="false"
             channelNoDataText="No program data" />
 
-        <Label id="hintLabel"
-            text="Options ( * ) : Settings"
-            translation="[1600, 1030]"
-            width="300"
-            height="40"
-            horizAlign="right"
-            color="0xAAAAAAFF" />
-
-        <Group id="detailPanel" translation="[40, 840]">
-            <Label id="detailTitle"
+        <Group id="detailPanel" translation="[0, 520]">
+            <Rectangle
                 translation="[0, 0]"
+                width="1920"
+                height="560"
+                color="0x0A1428FF" />
+            <Rectangle
+                translation="[0, 0]"
+                width="1920"
+                height="3"
+                color="0x38BDF8FF" />
+            <Label id="detailTitle"
+                translation="[40, 42]"
                 width="1840"
-                height="50"
+                height="60"
                 color="0xFFFFFFFF" />
             <Label id="detailSynopsis"
-                translation="[0, 55]"
+                translation="[40, 112]"
                 width="1840"
-                height="130"
+                height="180"
                 wrap="true"
                 color="0xCCCCCCFF" />
+            <Label id="hintLabel"
+                text="Options ( * ) : Settings"
+                translation="[1480, 500]"
+                width="380"
+                height="40"
+                horizAlign="right"
+                color="0xAAAAAAFF" />
         </Group>
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->
