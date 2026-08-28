@@ -1,7 +1,9 @@
 const express = require('express');
 const path = require('path');
+const compression = require('compression');
 
 const hdhr = require('./src/hdhomerun');
+const requestTiming = require('./src/middleware/requestTiming');
 const indexRoutes = require('./src/routes/index');
 const channelsRoutes = require('./src/routes/channels');
 const scanRoutes = require('./src/routes/scan');
@@ -15,7 +17,14 @@ const PORT = process.env.PORT || 8080;
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(requestTiming);
+app.use(compression());
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '7d',
+  etag: true,
+  lastModified: true,
+  immutable: true,
+}));
 app.use(express.urlencoded({ extended: false }));
 
 app.locals.deviceSystemLogUrl = `http://${hdhr.HOST}/log.html`;
@@ -28,6 +37,9 @@ app.use(guideRoutes);
 app.use(watchRoutes);
 app.use(apiRoutes);
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`hdhomerun-web listening on port ${PORT}`);
 });
+
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
