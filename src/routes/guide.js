@@ -7,7 +7,13 @@ const router = express.Router();
 const GUIDE_TTL_MS = Number(process.env.GUIDE_CACHE_TTL_MS || 30000);
 
 router.get('/guide', async (req, res) => {
+  res.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=20');
+  res.render('guide', { now: Math.floor(Date.now() / 1000) });
+});
+
+router.get('/guide/fragment', async (req, res) => {
   res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');
+  const now = Math.floor(Date.now() / 1000);
   try {
     const cacheKey = 'guide:duration:6';
     let channels = cache.get(cacheKey);
@@ -15,9 +21,9 @@ router.get('/guide', async (req, res) => {
       channels = await guide.getGuide({ duration: 6 });
       cache.set(cacheKey, channels, GUIDE_TTL_MS);
     }
-    res.render('guide', { channels: channels || [], error: null, now: Math.floor(Date.now() / 1000) });
+    res.render('_guide_accordion', { channels: channels || [], error: null, now });
   } catch (err) {
-    res.render('guide', { channels: [], error: err.message, now: Math.floor(Date.now() / 1000) });
+    res.render('_guide_accordion', { channels: [], error: err.message, now });
   }
 });
 

@@ -25,6 +25,7 @@
     var POLL_INTERVAL_MS = 500;
     var MAX_WAIT_MS = 30000;
     var HEARTBEAT_INTERVAL_MS = 4000;
+    var READY_RETRY_LIMIT = 4;
     var heartbeatTimer = null;
 
     function setStatus(text) { status.textContent = text; }
@@ -70,6 +71,17 @@
 
     window.addEventListener('pagehide', stopHeartbeat);
 
+    function streamFailureText(error) {
+      var detail = String(error || '');
+      if (/resource busy|device or resource busy|tuner|already in use/i.test(detail)) {
+        return 'Tuner is busy. Stop another stream and try again.';
+      }
+      if (/timed out|timeout/i.test(detail)) {
+        return 'Stream startup timed out. Retrying may help.';
+      }
+      return 'Stream failed to start. It may be in use by another tuner, or the channel may be unavailable.';
+    }
+
     function playHls() {
       if (window.Hls && Hls.isSupported()) {
         var hls = new Hls({
@@ -92,7 +104,7 @@
       }
     }
 
-    function pollUntilReady(startedAt) {
+    function pollUntilReady(startedAt, consecutiveFailures) {
       fetch(streamBase + 'ready')
         .then(function (r) { return r.json(); })
         .then(function (state) {
@@ -101,23 +113,31 @@
             return;
           }
           if (state.failed) {
-            setStatus('Stream failed to start. It may be in use by another tuner, or the channel may be unavailable.');
+            setStatus(streamFailureText(state.error));
             return;
           }
           if (Date.now() - startedAt > MAX_WAIT_MS) {
             setStatus('Timed out waiting for the stream to start.');
             return;
           }
-          setTimeout(function () { pollUntilReady(startedAt); }, POLL_INTERVAL_MS);
+          setTimeout(function () { pollUntilReady(startedAt, 0); }, POLL_INTERVAL_MS);
         })
         .catch(function () {
-          setTimeout(function () { pollUntilReady(startedAt); }, POLL_INTERVAL_MS);
+          var failures = (consecutiveFailures || 0) + 1;
+          if (failures >= READY_RETRY_LIMIT) {
+            setStatus('Retrying stream check… network is unstable.');
+          }
+          if (Date.now() - startedAt > MAX_WAIT_MS) {
+            setStatus('Timed out waiting for the stream to start.');
+            return;
+          }
+          setTimeout(function () { pollUntilReady(startedAt, failures); }, POLL_INTERVAL_MS);
         });
     }
 
     setStatus('Starting stream (' + profile + ' quality)…');
     fetch(streamBase + 'start', { method: 'POST' })
-      .then(function () { pollUntilReady(Date.now()); })
+      .then(function () { pollUntilReady(Date.now(), 0); })
       .catch(function () { setStatus('Could not reach the server to start the stream.'); });
   })();
 </script>

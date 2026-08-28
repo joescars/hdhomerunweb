@@ -5,63 +5,32 @@
   <a href="/guide/grid" class="btn btn-outline-secondary btn-sm">Grid view</a>
 </div>
 
-<% if (error) { %>
-  <div class="alert alert-danger">Could not load guide data: <%= error %></div>
-<% } else if (!channels.length) { %>
-  <div class="alert alert-secondary">No guide data available.</div>
-<% } else { %>
-  <div class="accordion" id="guideAccordion">
-    <% channels.forEach(function(ch, i) {
-         var airings = (ch.Guide || []).filter(function(a) { return a.EndTime > now; }).slice(0, 6);
-         var current = airings.find(function(a) { return a.StartTime <= now && now < a.EndTime; });
-    %>
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>">
-            <span class="badge text-bg-primary me-2 flex-shrink-0"><%= ch.GuideNumber %></span>
-            <span class="text-truncate flex-grow-1">
-              <%= ch.GuideName %>
-              <% if (current) { %><span class="text-body-secondary"> — <%= current.Title %></span><% } %>
-            </span>
-          </button>
-        </h2>
-        <div id="guide-<%= i %>" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-          <div class="accordion-body">
-            <% if (!airings.length) { %>
-              <p class="text-body-secondary small mb-0">No upcoming guide data for this channel.</p>
-            <% } %>
-            <% airings.forEach(function(a) { %>
-              <div class="d-flex gap-2 mb-3">
-                <% if (a.ImageURL) { %>
-                  <img src="<%= a.ImageURL %>" alt="" width="60" height="90" class="rounded flex-shrink-0" style="object-fit: cover;" loading="lazy">
-                <% } %>
-                <div class="flex-grow-1">
-                  <div class="d-flex align-items-center gap-2">
-                    <% if (a.StartTime <= now && now < a.EndTime) { %><span class="badge text-bg-danger">NOW</span><% } %>
-                    <strong><%= a.Title %></strong>
-                  </div>
-                  <div class="small text-body-secondary">
-                    <span class="airing-time" data-start="<%= a.StartTime %>" data-end="<%= a.EndTime %>"></span>
-                    <% if (a.EpisodeNumber) { %> · <%= a.EpisodeNumber %><% } %>
-                    <% if (a.EpisodeTitle) { %> · <%= a.EpisodeTitle %><% } %>
-                  </div>
-                  <% if (a.Synopsis) { %><div class="small mt-1"><%= a.Synopsis %></div><% } %>
-                </div>
-              </div>
-            <% }); %>
-          </div>
-        </div>
-      </div>
-    <% }); %>
+<div id="guide-content"
+     hx-get="/guide/fragment"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+  <div class="alert alert-secondary mb-0 d-flex align-items-center gap-2">
+    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+    <span>Loading guide data…</span>
   </div>
-<% } %>
+</div>
 
 <script>
-  document.querySelectorAll('.airing-time').forEach(function (el) {
-    var start = new Date(parseInt(el.dataset.start, 10) * 1000);
-    var end = new Date(parseInt(el.dataset.end, 10) * 1000);
-    var opts = { hour: 'numeric', minute: '2-digit' };
-    el.textContent = start.toLocaleTimeString([], opts) + ' – ' + end.toLocaleTimeString([], opts);
+  function hydrateAiringTimes(root) {
+    (root || document).querySelectorAll('.airing-time').forEach(function (el) {
+      var start = new Date(parseInt(el.dataset.start, 10) * 1000);
+      var end = new Date(parseInt(el.dataset.end, 10) * 1000);
+      var opts = { hour: 'numeric', minute: '2-digit' };
+      el.textContent = start.toLocaleTimeString([], opts) + ' – ' + end.toLocaleTimeString([], opts);
+    });
+  }
+
+  hydrateAiringTimes(document);
+
+  document.body.addEventListener('htmx:afterSwap', function (event) {
+    if (event.target && event.target.id === 'guide-content') {
+      hydrateAiringTimes(event.target);
+    }
   });
 </script>
 
