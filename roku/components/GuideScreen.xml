@@ -39,7 +39,7 @@
             <Rectangle
                 translation="[0, 0]"
                 width="1920"
-                height="140"
+                height="160"
                 color="0x0A1428FF" />
             <Rectangle
                 translation="[0, 0]"
@@ -59,6 +59,15 @@
                 font="font:SmallSystemFont"
                 wrap="true"
                 color="0xCCCCCCFF" />
+            <Label id="legendLabel"
+                translation="[1300, 130]"
+                width="592"
+                height="28"
+                font="font:SmallSystemFont"
+                horizAlign="right"
+                vertAlign="center"
+                color="0x9CB0C4FF"
+                text="LEFT/RIGHT: Filter    *: Options" />
         </Group>
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->

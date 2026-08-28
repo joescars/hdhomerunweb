@@ -16,6 +16,9 @@ sub init()
     m.statsTask = invalid
     m.statsCodec = "hevc"
     m.statsProfile = "medium"
+    m.channels = invalid
+    m.currentIndex = invalid
+    m.failed = false
 
     m.video.observeField("state", "onVideoStateChange")
     m.statsTimer.observeField("fire", "onStatsTimerFire")
@@ -24,6 +27,8 @@ end sub
 ' Public - callable from MainScene when this screen becomes top-of-stack.
 sub onScreenFocus()
     m.top.setFocus(true)
+    m.channels = m.top.channels
+    resolveCurrentIndex()
     if m.tuningStarted = false
         m.tuningStarted = true
         startTuning()
@@ -59,6 +64,50 @@ sub refreshStatsContext()
     if parts.Count() >= 6 and parts[4] <> "stream.m3u8"
         m.statsProfile = parts[4]
     end if
+end sub
+
+' Finds the index of the current channel within the passed channel list so
+' rewind/forward can step through the same order shown in the guide.
+sub resolveCurrentIndex()
+    m.currentIndex = invalid
+    if m.channels = invalid or m.top.channelNumber = invalid then return
+    for i = 0 to m.channels.Count() - 1
+        if m.channels[i].channelNumber = m.top.channelNumber
+            m.currentIndex = i
+            exit for
+        end if
+    end for
+end sub
+
+' Steps to the previous (-1) or next (+1) channel in the guide order and
+' re-runs the tuning handshake. Wraps around at both ends.
+sub changeChannelBy(delta as integer)
+    if m.channels = invalid or m.channels.Count() = 0 then return
+    if m.currentIndex = invalid then return
+
+    n = m.channels.Count()
+    newIdx = m.currentIndex + delta
+    if newIdx < 0 then newIdx = n - 1
+    if newIdx >= n then newIdx = 0
+
+    ch = m.channels[newIdx]
+    if ch = invalid then return
+
+    m.currentIndex = newIdx
+    m.top.channelNumber = ch.channelNumber
+    m.top.channelName = ch.channelName
+    m.top.streamPath = ch.streamPath
+
+    if m.streamTask <> invalid
+        m.streamTask.control = "STOP"
+        m.streamTask = invalid
+    end if
+    if m.video <> invalid
+        m.video.control = "stop"
+    end if
+    hideStatsPanel()
+    m.failed = false
+    startTuning()
 end sub
 
 sub onStreamStartResult(event as object)
@@ -132,6 +181,7 @@ end function
 
 sub playStream()
     hideOverlay()
+    m.failed = false
 
     url = m.top.serverUrl + m.top.streamPath
     content = CreateObject("roSGNode", "ContentNode")
@@ -167,7 +217,13 @@ sub showOverlay(text as string, showSpinner as boolean)
     m.statusLabel.visible = true
     m.statusLabel.text = text
     m.hintLabel.visible = true
-    m.hintLabel.text = "Press Back to return to Guide"
+    if showSpinner
+        m.hintLabel.text = "Press Back to return to Guide"
+        m.failed = false
+    else
+        m.hintLabel.text = "Press OK to retry · Back to return to Guide"
+        m.failed = true
+    end if
 end sub
 
 sub hideOverlay()
@@ -320,6 +376,18 @@ end sub
 function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "up"
         toggleStatsPanel()
+        return true
+    end if
+    if press and key = "rewind"
+        changeChannelBy(-1)
+        return true
+    end if
+    if press and key = "forward"
+        changeChannelBy(1)
+        return true
+    end if
+    if press and key = "OK" and m.failed = true
+        startTuning()
         return true
     end if
     if press and key = "back"
