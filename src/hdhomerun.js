@@ -7,7 +7,11 @@ async function request(path, options = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const res = await fetch(`${BASE}${path}`, { ...options, signal: controller.signal });
+    const res = await fetch(`${BASE}${path}`, {
+      ...options,
+      signal: controller.signal,
+      keepalive: true,
+    });
     if (!res.ok) {
       throw new Error(`HDHomeRun request failed: ${res.status} ${res.statusText}`);
     }

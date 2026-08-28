@@ -1,12 +1,20 @@
 const express = require('express');
 const guide = require('../guide');
 const hdhr = require('../hdhomerun');
+const cache = require('../cache');
 
 const router = express.Router();
+const GUIDE_TTL_MS = Number(process.env.GUIDE_CACHE_TTL_MS || 30000);
 
 router.get('/guide', async (req, res) => {
+  res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');
   try {
-    const channels = await guide.getGuide({ duration: 6 });
+    const cacheKey = 'guide:duration:6';
+    let channels = cache.get(cacheKey);
+    if (!channels) {
+      channels = await guide.getGuide({ duration: 6 });
+      cache.set(cacheKey, channels, GUIDE_TTL_MS);
+    }
     res.render('guide', { channels: channels || [], error: null, now: Math.floor(Date.now() / 1000) });
   } catch (err) {
     res.render('guide', { channels: [], error: err.message, now: Math.floor(Date.now() / 1000) });
@@ -14,12 +22,16 @@ router.get('/guide', async (req, res) => {
 });
 
 router.get('/guide/grid', async (req, res) => {
+  res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');
   const now = Math.floor(Date.now() / 1000);
   try {
-    const [guideChannels, lineup] = await Promise.all([
-      guide.getGuide({ duration: 8 }),
-      hdhr.getLineup().catch(() => []),
-    ]);
+    const cacheKey = 'guide:duration:8';
+    let guideChannels = cache.get(cacheKey);
+    if (!guideChannels) {
+      guideChannels = await guide.getGuide({ duration: 8 });
+      cache.set(cacheKey, guideChannels, GUIDE_TTL_MS);
+    }
+    const lineup = await hdhr.getLineup().catch(() => []);
     const channels = guide.mergeFavorites(guideChannels, lineup);
     res.render('guide-grid', { channels, error: null, now });
   } catch (err) {

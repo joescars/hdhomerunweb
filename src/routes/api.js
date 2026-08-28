@@ -1,13 +1,21 @@
 const express = require('express');
 const guide = require('../guide');
 const hdhr = require('../hdhomerun');
+const cache = require('../cache');
 
 const router = express.Router();
+const GUIDE_TTL_MS = Number(process.env.GUIDE_CACHE_TTL_MS || 30000);
 
 router.get('/api/guide', async (req, res) => {
+  res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
   let guideChannels;
   try {
-    guideChannels = await guide.getGuide({ duration: 4 });
+    const cacheKey = 'guide:duration:4';
+    guideChannels = cache.get(cacheKey);
+    if (!guideChannels) {
+      guideChannels = await guide.getGuide({ duration: 4 });
+      cache.set(cacheKey, guideChannels, GUIDE_TTL_MS);
+    }
   } catch (err) {
     res.status(502).json({ error: err.message });
     return;
