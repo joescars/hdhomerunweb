@@ -16,12 +16,14 @@ router.get('/guide/fragment', async (req, res) => {
   const now = Math.floor(Date.now() / 1000);
   try {
     const cacheKey = 'guide:duration:6';
-    let channels = cache.get(cacheKey);
-    if (!channels) {
-      channels = await guide.getGuide({ duration: 6 });
-      cache.set(cacheKey, channels, GUIDE_TTL_MS);
+    let guideChannels = cache.get(cacheKey);
+    if (!guideChannels) {
+      guideChannels = await guide.getGuide({ duration: 6 });
+      cache.set(cacheKey, guideChannels, GUIDE_TTL_MS);
     }
-    res.render('_guide_accordion', { channels: channels || [], error: null, now });
+    const lineup = await hdhr.getLineup().catch(() => []);
+    const channels = guide.mergeFavorites(guideChannels, lineup);
+    res.render('_guide_accordion', { channels, error: null, now });
   } catch (err) {
     res.render('_guide_accordion', { channels: [], error: err.message, now });
   }

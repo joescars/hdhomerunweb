@@ -11,15 +11,21 @@ sub init()
     m.firstTimeLabel = m.top.findNode("firstTimeLabel")
     m.secondTimeLabel = m.top.findNode("secondTimeLabel")
     m.thirdTimeLabel = m.top.findNode("thirdTimeLabel")
+    m.filterLabel = m.top.findNode("filterLabel")
 
     m.hasLoadedOnce = false
     m.guideStarted = false
     m.lastFocusedIndex = 0
+    m.filterMode = "all"
+    m.allChannels = []
+    m.lastServerTime = invalid
+    m.lastSlotStart = invalid
 
     m.guideGrid.observeField("itemSelected", "onChannelSelected")
     m.guideGrid.observeField("itemFocused", "onChannelFocused")
 
     m.refreshTimer.observeField("fire", "onRefreshTimerFire")
+    updateFilterLabel()
 end sub
 
 ' Public - callable from MainScene whenever this screen becomes the visible
@@ -85,19 +91,70 @@ sub onGuideResult(event as object)
         serverTime = now.AsSeconds()
     end if
     slotStart = serverTime - (serverTime mod 1800)
+    m.lastServerTime = serverTime
+    m.lastSlotStart = slotStart
     m.firstTimeLabel.text = formatGuideTime(slotStart)
     m.secondTimeLabel.text = formatGuideTime(slotStart + 1800)
     m.thirdTimeLabel.text = formatGuideTime(slotStart + 3600)
 
-    applyGuideContent(result.channels, serverTime, slotStart)
+    m.allChannels = result.channels
+    applyCurrentFilter()
+
+    if m.hasLoadedOnce and m.filterMode = "favorites"
+        if getGuideChildCount() = 0
+            print "[GuideScreen] favorites filter has no matching channels"
+        end if
+    end if
+end sub
+
+sub applyCurrentFilter()
+    if m.lastServerTime = invalid or m.lastSlotStart = invalid then return
+    channels = getFilteredChannels()
+    applyGuideContent(channels, m.lastServerTime, m.lastSlotStart)
 
     childCount = getGuideChildCount()
-    if childCount <= 0 then return
+    if childCount <= 0
+        m.detailTitle.text = "No channels match current filter"
+        m.detailSynopsis.text = "Press Left or Right to switch between All and Favorites."
+        return
+    end if
 
     focusIndex = m.lastFocusedIndex
     if focusIndex >= childCount then focusIndex = childCount - 1
     if focusIndex < 0 then focusIndex = 0
     updateFocusedDetails(focusIndex)
+end sub
+
+function getFilteredChannels() as object
+    if m.filterMode = "favorites"
+        favorites = []
+        for each ch in m.allChannels
+            if ch.favorite = true
+                favorites.Push(ch)
+            end if
+        end for
+        return favorites
+    end if
+    return m.allChannels
+end function
+
+sub setFilterMode(mode as string)
+    if mode <> "all" and mode <> "favorites" then return
+    if m.filterMode = mode then return
+
+    m.filterMode = mode
+    m.lastFocusedIndex = 0
+    updateFilterLabel()
+    applyCurrentFilter()
+end sub
+
+sub updateFilterLabel()
+    if m.filterLabel = invalid then return
+    if m.filterMode = "favorites"
+        m.filterLabel.text = "Filter: Favorites"
+    else
+        m.filterLabel.text = "Filter: All"
+    end if
 end sub
 
 sub applyGuideContent(channels as object, serverTime as integer, slotStart as integer)
@@ -273,6 +330,14 @@ end sub
 function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "options"
         m.top.openSettings = true
+        return true
+    end if
+    if press and key = "left"
+        setFilterMode("all")
+        return true
+    end if
+    if press and key = "right"
+        setFilterMode("favorites")
         return true
     end if
     ' "back" is intentionally left unhandled here so the OS can exit the

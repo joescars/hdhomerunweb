@@ -5,6 +5,17 @@
   <a href="/guide/grid" class="btn btn-outline-secondary btn-sm">Grid view</a>
 </div>
 
+<div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+  <div class="btn-group flex-wrap" role="group" aria-label="Guide filters">
+    <input type="checkbox" class="btn-check" id="guide-filter-favorites" autocomplete="off">
+    <label class="btn btn-outline-warning btn-sm" for="guide-filter-favorites"><i class="bi bi-star-fill me-1"></i>Favorites</label>
+
+    <input type="checkbox" class="btn-check" id="guide-filter-show-hidden" autocomplete="off">
+    <label class="btn btn-outline-secondary btn-sm" for="guide-filter-show-hidden">Show Hidden</label>
+  </div>
+  <span class="text-body-secondary small ms-auto" id="guide-channel-count"></span>
+</div>
+
 <div id="guide-content"
      hx-get="/guide/fragment"
      hx-trigger="load"
@@ -14,8 +25,16 @@
     <span>Loading guide data…</span>
   </div>
 </div>
+<div id="guide-filter-empty" class="alert alert-secondary mt-2" style="display:none;">
+  No channels match the current filters.
+</div>
 
 <script>
+  var guideFavoritesCheck = document.getElementById('guide-filter-favorites');
+  var guideShowHiddenCheck = document.getElementById('guide-filter-show-hidden');
+  var guideCountEl = document.getElementById('guide-channel-count');
+  var guideEmptyEl = document.getElementById('guide-filter-empty');
+
   function hydrateAiringTimes(root) {
     (root || document).querySelectorAll('.airing-time').forEach(function (el) {
       var start = new Date(parseInt(el.dataset.start, 10) * 1000);
@@ -25,12 +44,41 @@
     });
   }
 
+  function applyGuideFilters() {
+    if (!guideFavoritesCheck || !guideShowHiddenCheck || !guideCountEl) return;
+    var items = document.querySelectorAll('#guide-content .guide-item');
+    var visible = 0;
+    items.forEach(function (item) {
+      var isFavorite = item.dataset.favorite === '1';
+      var isHidden = item.dataset.hidden === '1';
+      var show = (!guideFavoritesCheck.checked || isFavorite) && (guideShowHiddenCheck.checked || !isHidden);
+      item.style.display = show ? '' : 'none';
+      if (show) visible += 1;
+    });
+
+    guideCountEl.textContent = visible + ' channel' + (visible === 1 ? '' : 's');
+    if (guideEmptyEl) {
+      guideEmptyEl.style.display = (items.length > 0 && visible === 0) ? '' : 'none';
+    }
+  }
+
+  if (guideShowHiddenCheck) {
+    guideShowHiddenCheck.checked = false;
+  }
+
   hydrateAiringTimes(document);
+  applyGuideFilters();
 
   document.body.addEventListener('htmx:afterSwap', function (event) {
     if (event.target && event.target.id === 'guide-content') {
       hydrateAiringTimes(event.target);
+      applyGuideFilters();
     }
+  });
+
+  [guideFavoritesCheck, guideShowHiddenCheck].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('change', applyGuideFilters);
   });
 </script>
 

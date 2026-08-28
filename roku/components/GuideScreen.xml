@@ -20,7 +20,8 @@
             <Label translation="[24, 0]" width="276" height="50" text="Channel" font="font:SmallBoldSystemFont" vertAlign="center" />
             <Label id="firstTimeLabel" translation="[324, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
             <Label id="secondTimeLabel" translation="[804, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
-            <Label id="thirdTimeLabel" translation="[1284, 0]" width="612" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
+            <Label id="thirdTimeLabel" translation="[1284, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
+            <Label id="filterLabel" translation="[1710, 0]" width="196" height="50" font="font:SmallSystemFont" horizAlign="right" vertAlign="center" color="0xBFD2E6FF" />
         </Group>
 
         <MarkupGrid id="guideGrid"

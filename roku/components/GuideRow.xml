@@ -14,7 +14,8 @@
         <Rectangle translation="[780, 0]" width="2" height="60" color="0x334155FF" />
         <Rectangle translation="[1260, 0]" width="2" height="60" color="0x334155FF" />
         <Poster id="channelLogo" translation="[10, 5]" width="58" height="50" loadDisplayMode="scaleToFit" />
-        <Label id="channelLabel" translation="[78, 0]" width="202" height="60" font="font:SmallBoldSystemFont" vertAlign="center" />
+        <Label id="channelLabel" translation="[78, 0]" width="176" height="60" font="font:SmallBoldSystemFont" vertAlign="center" />
+        <Label id="favoriteStar" translation="[252, 0]" width="36" height="60" text="*" font="font:MediumBoldSystemFont" horizAlign="center" vertAlign="center" color="0xF5B301FF" visible="false" />
         <Label id="firstLabel" translation="[324, 0]" width="432" height="60" font="font:SmallSystemFont" vertAlign="center" />
         <Label id="secondLabel" translation="[804, 0]" width="432" height="60" font="font:SmallSystemFont" vertAlign="center" />
         <Label id="thirdLabel" translation="[1284, 0]" width="612" height="60" font="font:SmallSystemFont" vertAlign="center" />
