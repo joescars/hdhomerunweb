@@ -5,7 +5,7 @@
         <field id="serverUrl" type="string" />
         <!-- in: channel number string, e.g. "3.1" -->
         <field id="channelNumber" type="string" />
-        <!-- out: { state: "ready"|"failed"|"timeout", error: string } -->
+        <!-- out: { state: "ready"|"failed"|"timeout", reason: string, error: string } -->
         <field id="result" type="assocarray" alwaysNotify="true" />
     </interface>
     <script type="text/brightscript" uri="pkg:/components/Net.brs" />

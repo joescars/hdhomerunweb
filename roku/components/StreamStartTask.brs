@@ -30,12 +30,20 @@ sub doStart()
     ' but we treat any 2xx as success.
     postResp = Net_HttpPost(startUrl, 10000)
     if postResp.success <> true
-        m.top.result = { state: "failed", error: "Could not start stream (" + postResp.error + ")" }
+        m.top.result = {
+            state: "failed"
+            reason: "network"
+            error: "Could not start stream (" + postResp.error + ")"
+        }
         return
     end if
 
-    ' Step 2: poll every 500ms, capped at 30s total elapsed wall-clock time.
+    ' Step 2: poll with bounded backoff, capped at 30s total elapsed wall-clock time.
     pollIntervalMs = 500
+    maxPollIntervalMs = 2000
+    backoffStepMs = 250
+    consecutivePollFailures = 0
+    maxConsecutivePollFailures = 6
     maxWaitMs = 30000
 
     stopwatch = CreateObject("roTimespan")
@@ -58,19 +66,68 @@ sub doStart()
                     if json.error <> invalid and json.error <> ""
                         errMsg = json.error
                     end if
-                    m.top.result = { state: "failed", error: errMsg }
+                    m.top.result = {
+                        state: "failed"
+                        reason: classifyFailureReason(errMsg)
+                        error: errMsg
+                    }
                     return
                 else if json.ready = true
-                    m.top.result = { state: "ready", error: "" }
+                    m.top.result = {
+                        state: "ready"
+                        reason: "ok"
+                        error: ""
+                    }
                     return
                 end if
                 ' else: not ready yet, keep polling
             end if
+            consecutivePollFailures = 0
+            pollIntervalMs = 500
+        else
+            consecutivePollFailures = consecutivePollFailures + 1
+            pollIntervalMs = pollIntervalMs + backoffStepMs
+            if pollIntervalMs > maxPollIntervalMs
+                pollIntervalMs = maxPollIntervalMs
+            end if
+
+            if consecutivePollFailures >= maxConsecutivePollFailures
+                m.top.result = {
+                    state: "failed"
+                    reason: "network"
+                    error: "Could not confirm stream readiness due to repeated network errors"
+                }
+                return
+            end if
         end if
-        ' On a transient GET failure we keep polling until the overall cap
-        ' is hit rather than failing immediately - a single dropped poll
-        ' shouldn't abort a tune that's otherwise progressing.
     end while
 
-    m.top.result = { state: "timeout", error: "Timed out waiting for the stream to start" }
+    m.top.result = {
+        state: "timeout"
+        reason: "timeout"
+        error: "Timed out waiting for the stream to start"
+    }
 end sub
+
+function classifyFailureReason(errorText as string) as string
+    if errorText = invalid then return "unknown"
+    lower = LCase(errorText)
+
+    if Instr(1, lower, "busy") > 0 or Instr(1, lower, "in use") > 0 or Instr(1, lower, "resource") > 0
+        return "tuner_busy"
+    end if
+
+    if Instr(1, lower, "unauthorized") > 0 or Instr(1, lower, "forbidden") > 0
+        return "access_denied"
+    end if
+
+    if Instr(1, lower, "timeout") > 0 or Instr(1, lower, "timed out") > 0
+        return "timeout"
+    end if
+
+    if Instr(1, lower, "signal") > 0 or Instr(1, lower, "channel") > 0
+        return "signal"
+    end if
+
+    return "unknown"
+end function

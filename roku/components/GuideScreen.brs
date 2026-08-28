@@ -14,6 +14,7 @@ sub init()
 
     m.hasLoadedOnce = false
     m.guideStarted = false
+    m.lastFocusedIndex = 0
 
     m.guideGrid.observeField("itemSelected", "onChannelSelected")
     m.guideGrid.observeField("itemFocused", "onChannelFocused")
@@ -88,8 +89,46 @@ sub onGuideResult(event as object)
     m.secondTimeLabel.text = formatGuideTime(slotStart + 1800)
     m.thirdTimeLabel.text = formatGuideTime(slotStart + 3600)
 
-    m.guideGrid.content = buildGuideContent(result.channels, serverTime, slotStart)
-    updateFocusedDetails(0)
+    applyGuideContent(result.channels, serverTime, slotStart)
+
+    childCount = getGuideChildCount()
+    if childCount <= 0 then return
+
+    focusIndex = m.lastFocusedIndex
+    if focusIndex >= childCount then focusIndex = childCount - 1
+    if focusIndex < 0 then focusIndex = 0
+    updateFocusedDetails(focusIndex)
+end sub
+
+sub applyGuideContent(channels as object, serverTime as integer, slotStart as integer)
+    existing = m.guideGrid.content
+    if existing = invalid
+        m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+        return
+    end if
+
+    existingCount = existing.GetChildCount()
+    incomingCount = channels.Count()
+
+    if existingCount <> incomingCount
+        m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+        return
+    end if
+
+    for i = 0 to incomingCount - 1
+        ch = channels[i]
+        row = buildGuideRow(ch, serverTime, slotStart)
+        node = existing.GetChild(i)
+
+        if node = invalid or node.ChannelNumber <> row.ChannelNumber
+            m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+            return
+        end if
+
+        if node.RowSignature <> row.RowSignature
+            patchGuideRowNode(node, row)
+        end if
+    end for
 end sub
 
 function buildGuideContent(channels as object, serverTime as integer, slotStart as integer) as object
@@ -97,31 +136,57 @@ function buildGuideContent(channels as object, serverTime as integer, slotStart 
 
     for each ch in channels
         chNode = root.CreateChild("ContentNode")
-        current = findProgramAt(ch.programs, serverTime)
-        firstSlot = findProgramAt(ch.programs, slotStart)
-        secondSlot = findProgramAt(ch.programs, slotStart + 1800)
-        thirdSlot = findProgramAt(ch.programs, slotStart + 3600)
-
-        detailsTitle = current.title
-        if current.episodeTitle <> ""
-            detailsTitle = detailsTitle + " - " + current.episodeTitle
-        end if
-
-        chNode.AddFields({
-            ChannelNumber: ch.number
-            ChannelName: ch.name
-            LogoUri: ch.logo
-            StreamPath: ch.streamPath
-            Favorite: ch.favorite
-            FirstTitle: firstSlot.title
-            SecondTitle: secondSlot.title
-            ThirdTitle: thirdSlot.title
-            DetailsTitle: detailsTitle
-            Synopsis: current.synopsis
-        })
+        chNode.AddFields(buildGuideRow(ch, serverTime, slotStart))
     end for
 
     return root
+end function
+
+function buildGuideRow(ch as object, serverTime as integer, slotStart as integer) as object
+    current = findProgramAt(ch.programs, serverTime)
+    firstSlot = findProgramAt(ch.programs, slotStart)
+    secondSlot = findProgramAt(ch.programs, slotStart + 1800)
+    thirdSlot = findProgramAt(ch.programs, slotStart + 3600)
+
+    detailsTitle = current.title
+    if current.episodeTitle <> ""
+        detailsTitle = detailsTitle + " - " + current.episodeTitle
+    end if
+
+    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis
+
+    return {
+        ChannelNumber: ch.number
+        ChannelName: ch.name
+        LogoUri: ch.logo
+        StreamPath: ch.streamPath
+        Favorite: ch.favorite
+        FirstTitle: firstSlot.title
+        SecondTitle: secondSlot.title
+        ThirdTitle: thirdSlot.title
+        DetailsTitle: detailsTitle
+        Synopsis: current.synopsis
+        RowSignature: rowSignature
+    }
+end function
+
+sub patchGuideRowNode(node as object, row as object)
+    node.ChannelName = row.ChannelName
+    node.LogoUri = row.LogoUri
+    node.StreamPath = row.StreamPath
+    node.Favorite = row.Favorite
+    node.FirstTitle = row.FirstTitle
+    node.SecondTitle = row.SecondTitle
+    node.ThirdTitle = row.ThirdTitle
+    node.DetailsTitle = row.DetailsTitle
+    node.Synopsis = row.Synopsis
+    node.RowSignature = row.RowSignature
+end sub
+
+function getGuideChildCount() as integer
+    content = m.guideGrid.content
+    if content = invalid then return 0
+    return content.GetChildCount()
 end function
 
 function findProgramAt(programs as object, timestamp as integer) as object
@@ -163,7 +228,9 @@ sub onChannelSelected(event as object)
 end sub
 
 sub onChannelFocused(event as object)
-    updateFocusedDetails(event.getData())
+    idx = event.getData()
+    m.lastFocusedIndex = idx
+    updateFocusedDetails(idx)
 end sub
 
 sub tuneToChannelIndex(chIdx as integer)

@@ -75,9 +75,34 @@ sub onStreamStartResult(event as object)
         if result.error <> invalid and result.error <> ""
             print "[PlayerScreen] stream start failed: "; result.error
         end if
-        showOverlay(friendlyError("Could not tune channel", result.error), false)
+        showOverlay(streamStartFailureMessage(result), false)
     end if
 end sub
+
+' Builds a concise user-facing status for common startup failures while still
+' including useful detail from the backend when available.
+function streamStartFailureMessage(result as object) as string
+    reason = ""
+    detail = ""
+    if result <> invalid
+        if result.reason <> invalid and result.reason <> "" then reason = LCase(result.reason)
+        if result.error <> invalid then detail = result.error
+    end if
+
+    if reason = "tuner_busy"
+        return friendlyError("All tuners are busy", detail)
+    else if reason = "network"
+        return friendlyError("Network issue while starting stream", detail)
+    else if reason = "timeout"
+        return friendlyError("Stream startup timed out", detail)
+    else if reason = "access_denied"
+        return friendlyError("Channel access denied", detail)
+    else if reason = "signal"
+        return friendlyError("Channel unavailable or weak signal", detail)
+    end if
+
+    return friendlyError("Could not tune channel", detail)
+end function
 
 ' Builds a one-line, screen-safe message: a human headline plus a trimmed hint
 ' from the underlying error, if there is one worth showing.
