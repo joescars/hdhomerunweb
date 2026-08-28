@@ -17,13 +17,13 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 
 ## Screenshots
 
-| TV Guide | Channel Lineup |
-|---|---|
-| ![TV Guide](docs/screen-tv-guide.jpeg) | ![Channel Lineup](docs/screen-channel-lineup.jpeg) |
+| TV Guide |
+|---|
+| ![TV Guide](docs/screen-tv-guide.jpeg) |
 
-| Detect Channels | System Status |
-|---|---|
-| ![Detect Channels](docs/screen-detect-channels.jpeg) | ![System Status](docs/screen-system-status.jpeg) |
+| Channel Lineup | System Status | Detect Channels |
+|---|---|---|
+| ![Channel Lineup](docs/screen-channel-lineup.jpeg) | ![System Status](docs/screen-system-status.jpeg) | ![Detect Channels](docs/screen-detect-channels.jpeg) |
 
 | Roku channel guide |
 |---|
