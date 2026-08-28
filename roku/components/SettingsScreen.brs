@@ -7,7 +7,9 @@
 
 sub init()
     m.urlLabel = m.top.findNode("urlLabel")
+    m.statusLabel = m.top.findNode("statusLabel")
     updateUrlLabel()
+    setStatus("Ready")
     onScreenFocus()
 end sub
 
@@ -17,12 +19,18 @@ sub onScreenFocus()
 end sub
 
 sub updateUrlLabel()
-    m.urlLabel.text = "Server URL: " + m.top.serverUrl
+    m.urlLabel.text = m.top.serverUrl
+end sub
+
+sub setStatus(text as string)
+    if m.statusLabel = invalid then return
+    m.statusLabel.text = text
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if press
         if key = "OK"
+            setStatus("Editing URL…")
             showKeyboard()
             return true
         else if key = "back"
@@ -62,7 +70,12 @@ sub onKeyboardButtonSelected(event as object)
             m.top.serverUrl = newUrl
             updateUrlLabel()
             m.top.saved = newUrl
+            setStatus("Saved")
+        else
+            setStatus("URL cannot be empty")
         end if
+    else
+        setStatus("Edit canceled")
     end if
 
     dialog.close = true

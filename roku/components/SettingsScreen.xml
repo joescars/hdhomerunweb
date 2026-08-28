@@ -12,17 +12,85 @@
     </interface>
 
     <children>
-        <Rectangle translation="[0, 0]" width="1920" height="1080" color="0x0A1428FF" />
+        <Rectangle translation="[0, 0]" width="1920" height="1080" color="0x050A12FF" />
 
-        <Label translation="[120, 100]" text="Settings" width="800" height="60" color="0xFFFFFFFF" />
+        <Group translation="[260, 130]">
+            <Rectangle width="1400" height="820" color="0x0A1428F4" />
+            <Rectangle width="1400" height="4" color="0x38BDF8FF" />
 
-        <Label id="urlLabel" translation="[120, 220]" width="1600" height="50" color="0xFFFFFFFF" />
+            <Label
+                translation="[56, 40]"
+                width="1288"
+                height="58"
+                font="font:LargeBoldSystemFont"
+                text="Settings"
+                color="0xFFFFFFFF" />
 
-        <Label translation="[120, 300]"
-            text="Press OK to edit the server URL. Press Back to return to the guide."
-            width="1600"
-            height="50"
-            color="0xAAAAAAFF" />
+            <Label
+                translation="[56, 102]"
+                width="1288"
+                height="34"
+                font="font:SmallSystemFont"
+                text="Configure the HDHomeRun Web server URL used by this Roku client."
+                color="0xA7B7C7FF" />
+
+            <Label
+                translation="[56, 180]"
+                width="1288"
+                height="34"
+                font="font:SmallBoldSystemFont"
+                text="Server URL"
+                color="0xE2E8F0FF" />
+
+            <Rectangle
+                id="urlBox"
+                translation="[56, 224]"
+                width="1288"
+                height="86"
+                color="0x101D33FF" />
+            <Rectangle
+                translation="[56, 224]"
+                width="1288"
+                height="2"
+                color="0x334155FF" />
+            <Label
+                id="urlLabel"
+                translation="[82, 244]"
+                width="1236"
+                height="46"
+                font="font:MediumSystemFont"
+                color="0xFFFFFFFF" />
+
+            <Label
+                translation="[56, 342]"
+                width="1288"
+                height="140"
+                font="font:SmallSystemFont"
+                wrap="true"
+                text="Press OK to edit. Example: http://192.168.1.50:8080"
+                color="0x9CB0C4FF" />
+
+            <Label
+                id="statusLabel"
+                translation="[56, 492]"
+                width="1288"
+                height="44"
+                font="font:SmallSystemFont"
+                color="0x38BDF8FF" />
+
+            <Rectangle
+                translation="[56, 702]"
+                width="1288"
+                height="62"
+                color="0x0F1D30FF" />
+            <Label
+                translation="[84, 720]"
+                width="1228"
+                height="28"
+                font="font:SmallSystemFont"
+                text="OK: Edit URL     Back: Return to Guide"
+                color="0xB6C7D8FF" />
+        </Group>
     </children>
 
     <script type="text/brightscript" uri="SettingsScreen.brs" />
