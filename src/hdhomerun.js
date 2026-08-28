@@ -2,14 +2,6 @@ const HOST = process.env.HDHOMERUN_HOST || 'hdhomerun.local';
 const PORT = process.env.HDHOMERUN_PORT || 80;
 const BASE = `http://${HOST}:${PORT}`;
 const TIMEOUT_MS = 5000;
-const { Agent } = require('undici');
-
-const dispatcher = new Agent({
-  keepAliveTimeout: 60_000,
-  keepAliveMaxTimeout: 120_000,
-  pipelining: 1,
-  connections: 16,
-});
 
 async function request(path, options = {}) {
   const controller = new AbortController();
@@ -18,7 +10,7 @@ async function request(path, options = {}) {
     const res = await fetch(`${BASE}${path}`, {
       ...options,
       signal: controller.signal,
-      dispatcher,
+      keepalive: true,
     });
     if (!res.ok) {
       throw new Error(`HDHomeRun request failed: ${res.status} ${res.statusText}`);
