@@ -1,2 +1,7 @@
 node_modules/
 npm-debug.log
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
