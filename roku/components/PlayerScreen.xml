@@ -6,6 +6,8 @@
         <field id="channelNumber" type="string" />
         <field id="channelName" type="string" />
         <field id="streamPath" type="string" />
+        <!-- in: ordered list of visible channels for rewind/forward surfing -->
+        <field id="channels" type="array" />
         <!-- out: fires when the user backs out of the player -->
         <field id="closed" type="boolean" alwaysNotify="true" />
         <!-- callable from MainScene -->

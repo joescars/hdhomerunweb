@@ -97,6 +97,7 @@ sub onLaunchPlayer(event as object)
     screen.channelNumber = data.channelNumber
     screen.channelName = data.channelName
     screen.streamPath = data.streamPath
+    screen.channels = data.channels
     screen.observeField("closed", "onPlayerClosed")
     pushScreen(screen)
 end sub

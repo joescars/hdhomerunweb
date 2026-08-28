@@ -8,6 +8,7 @@
 sub init()
     m.urlLabel = m.top.findNode("urlLabel")
     m.statusLabel = m.top.findNode("statusLabel")
+    m.checkTask = invalid
     updateUrlLabel()
     setStatus("Ready")
     onScreenFocus()
@@ -70,7 +71,7 @@ sub onKeyboardButtonSelected(event as object)
             m.top.serverUrl = newUrl
             updateUrlLabel()
             m.top.saved = newUrl
-            setStatus("Saved")
+            runConnectivityCheck(newUrl)
         else
             setStatus("URL cannot be empty")
         end if
@@ -88,6 +89,36 @@ function trimTrailingSlash(url as string) as string
     end if
     return url
 end function
+
+' Fires a background connectivity probe after the URL is saved and updates the
+' status line with the result. Network I/O happens in UrlCheckTask, not here.
+sub runConnectivityCheck(url as string)
+    if m.checkTask <> invalid
+        m.checkTask.control = "STOP"
+        m.checkTask = invalid
+    end if
+
+    setStatus("Checking connection…")
+    task = CreateObject("roSGNode", "UrlCheckTask")
+    task.serverUrl = url
+    task.observeField("result", "onCheckResult")
+    m.checkTask = task
+    task.control = "RUN"
+end sub
+
+sub onCheckResult(event as object)
+    m.checkTask = invalid
+    res = event.getData()
+    if res = invalid or res.success <> true
+        detail = ""
+        if res <> invalid and res.error <> invalid and res.error <> ""
+            detail = " (" + res.error + ")"
+        end if
+        setStatus("Saved — can't reach server" + detail)
+    else
+        setStatus("Saved — connected")
+    end if
+end sub
 
 sub saveServerUrl(url as string)
     scene = m.top.getScene()

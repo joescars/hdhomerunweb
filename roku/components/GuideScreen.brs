@@ -16,7 +16,7 @@ sub init()
     m.hasLoadedOnce = false
     m.guideStarted = false
     m.lastFocusedIndex = 0
-    m.filterMode = "all"
+    m.filterMode = readFilterMode()
     m.allChannels = []
     m.lastServerTime = invalid
     m.lastSlotStart = invalid
@@ -143,6 +143,7 @@ sub setFilterMode(mode as string)
     if m.filterMode = mode then return
 
     m.filterMode = mode
+    writeFilterMode(mode)
     m.lastFocusedIndex = 0
     updateFilterLabel()
     applyCurrentFilter()
@@ -155,6 +156,25 @@ sub updateFilterLabel()
     else
         m.filterLabel.text = "Filter: All"
     end if
+end sub
+
+' --- filter persistence ---------------------------------------------------
+
+function readFilterMode() as string
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return "all"
+    if sec.Exists("guideFilter") and sec.Read("guideFilter") = "favorites"
+        return "favorites"
+    end if
+    return "all"
+end function
+
+sub writeFilterMode(mode as string)
+    if mode <> "all" and mode <> "favorites" then return
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return
+    sec.Write("guideFilter", mode)
+    sec.Flush()
 end sub
 
 sub applyGuideContent(channels as object, serverTime as integer, slotStart as integer)
@@ -296,10 +316,23 @@ sub tuneToChannelIndex(chIdx as integer)
     chNode = content.getChild(chIdx)
     if chNode = invalid then return
 
+    channels = []
+    for i = 0 to content.GetChildCount() - 1
+        c = content.GetChild(i)
+        if c <> invalid
+            channels.Push({
+                channelNumber: c.ChannelNumber
+                channelName: c.ChannelName
+                streamPath: c.StreamPath
+            })
+        end if
+    end for
+
     m.top.launchPlayer = {
         channelNumber: chNode.ChannelNumber
         channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
+        channels: channels
     }
 end sub
 
