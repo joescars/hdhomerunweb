@@ -35,10 +35,14 @@ function indexLineupByNumber(lineup) {
 
 function mergeFavorites(guideChannels, lineup) {
   const lineupByNumber = indexLineupByNumber(lineup);
-  return (guideChannels || []).map((ch) => ({
-    ...ch,
-    Favorite: !!(lineupByNumber.get(ch.GuideNumber) || {}).Favorite,
-  }));
+  return (guideChannels || []).map((ch) => {
+    const lineupEntry = lineupByNumber.get(ch.GuideNumber) || {};
+    return {
+      ...ch,
+      Favorite: !!lineupEntry.Favorite,
+      Hidden: Number(lineupEntry.Enabled) === 0,
+    };
+  });
 }
 
 module.exports = { getGuide, indexLineupByNumber, mergeFavorites };

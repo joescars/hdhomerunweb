@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
 - Added partial template reuse for guide content with `views/_guide_accordion.ejs`.
 - Added progressive channel list loading for large lineups using `GET /channels/rows` and `views/_channel_rows.ejs`.
 - Improved browser watch-page startup feedback with clearer retry/timeout/tuner-busy states in `views/watch.ejs`.
+- Added TV Guide grid filtering controls for **Favorites** and **Show Hidden**, with hidden channels excluded by default on `/guide/grid`.
+- Extended guide/lineup merge data to include hidden-channel state so web guide filters can distinguish hidden channels reliably.
 
 ### Added / changed: Node/Express performance and observability
 

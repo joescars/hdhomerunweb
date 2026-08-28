@@ -17,9 +17,13 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 
 ## Screenshots
 
-| TV Guide grid (dark) | System Status (light) | Watching live TV |
-|---|---|---|
-| ![TV Guide grid, dark mode](docs/screenshot-dark.png) | ![System Status, light mode](docs/screenshot-light.png) | ![Live channel playback](docs/screenshot-watch.png) |
+| TV Guide | Channel Lineup |
+|---|---|
+| ![TV Guide](docs/screen-tv-guide.jpeg) | ![Channel Lineup](docs/screen-channel-lineup.jpeg) |
+
+| Detect Channels | System Status |
+|---|---|
+| ![Detect Channels](docs/screen-detect-channels.jpeg) | ![System Status](docs/screen-system-status.jpeg) |
 
 | Roku channel guide |
 |---|

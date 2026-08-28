@@ -10,6 +10,17 @@
 <% } else if (!channels.length) { %>
   <div class="alert alert-secondary">No guide data available.</div>
 <% } else { %>
+  <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+    <div class="btn-group flex-wrap" role="group" aria-label="Guide filters">
+      <input type="checkbox" class="btn-check" id="filter-favorites" autocomplete="off">
+      <label class="btn btn-outline-warning btn-sm" for="filter-favorites"><i class="bi bi-star-fill me-1"></i>Favorites</label>
+
+      <input type="checkbox" class="btn-check" id="filter-show-hidden" autocomplete="off">
+      <label class="btn btn-outline-secondary btn-sm" for="filter-show-hidden">Show Hidden</label>
+    </div>
+    <span class="text-body-secondary small ms-auto" id="guide-channel-count"></span>
+  </div>
+
   <div class="guide-scroll">
     <div class="guide-inner" id="guide-inner"></div>
   </div>
@@ -41,9 +52,16 @@
   var now = <%= now %>;
   var container = document.getElementById('guide-inner');
   var scrollParent = document.querySelector('.guide-scroll');
-  if (!container || !scrollParent) return;
+  var favoritesCheck = document.getElementById('filter-favorites');
+  var showHiddenCheck = document.getElementById('filter-show-hidden');
+  var countEl = document.getElementById('guide-channel-count');
+  if (!container || !scrollParent || !favoritesCheck || !showHiddenCheck || !countEl) return;
 
   var colWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--guide-col-width')) || 84;
+  var hasAutoScrolledToNow = false;
+
+  // By default, hidden channels are excluded from the TV guide.
+  showHiddenCheck.checked = false;
 
   // Longest airing across all channels, so we never build a range wider than
   // the data we actually have (guide route fetches an 8h window).
@@ -140,7 +158,24 @@
   header.appendChild(headerTrack);
   container.appendChild(header);
 
-  data.forEach(function (ch) {
+  function matchesFilter(ch) {
+    if (favoritesCheck.checked && !ch.Favorite) return false;
+    if (!showHiddenCheck.checked && ch.Hidden) return false;
+    return true;
+  }
+
+  function updateCount(displayed) {
+    countEl.textContent = displayed + ' channel' + (displayed === 1 ? '' : 's');
+  }
+
+  function renderRows() {
+    container.querySelectorAll('.guide-row').forEach(function (row) { row.remove(); });
+
+    var displayed = 0;
+    data.forEach(function (ch) {
+      if (!matchesFilter(ch)) return;
+      displayed += 1;
+
     var row = document.createElement('div');
     row.className = 'guide-row';
 
@@ -188,7 +223,10 @@
 
     row.appendChild(track);
     container.appendChild(row);
-  });
+    });
+
+    updateCount(displayed);
+  }
 
   var nowLine = document.createElement('div');
   nowLine.className = 'guide-now-line';
@@ -196,8 +234,17 @@
   container.style.position = 'relative';
   container.appendChild(nowLine);
 
-  // Scroll the "now" line into view on load.
-  scrollParent.scrollLeft = Math.max(0, minutesFromStart(now) * PX_PER_MIN - 60);
+  renderRows();
+
+  // Scroll the "now" line into view once on initial render.
+  if (!hasAutoScrolledToNow) {
+    scrollParent.scrollLeft = Math.max(0, minutesFromStart(now) * PX_PER_MIN - 60);
+    hasAutoScrolledToNow = true;
+  }
+
+  [favoritesCheck, showHiddenCheck].forEach(function (el) {
+    el.addEventListener('change', renderRows);
+  });
 })();
 </script>
 
