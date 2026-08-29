@@ -5,6 +5,9 @@
         <field id="serverUrl" type="string" />
         <!-- in: most-recent-first array of channel-number strings, from MainScene's registry-backed tracking -->
         <field id="recentChannels" type="array" onChange="onRecentChannelsChange" />
+        <!-- in: Settings toggle - each preview holds a tuner while it plays,
+             so users with few tuners can turn this off -->
+        <field id="livePreviewEnabled" type="boolean" onChange="onLivePreviewEnabledChange" />
         <!-- out: { channelNumber, channelName, streamPath } - fires when the user selects a channel/program -->
         <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
         <!-- out: fires when the user presses the Options remote button -->

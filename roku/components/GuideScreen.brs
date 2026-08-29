@@ -26,6 +26,7 @@ sub init()
     m.lastSlotStart = invalid
     m.previewTask = invalid
     m.previewChannelNumber = invalid
+    m.livePreviewEnabled = true
 
     m.guideGrid.observeField("itemSelected", "onChannelSelected")
     m.guideGrid.observeField("itemFocused", "onChannelFocused")
@@ -461,8 +462,18 @@ end sub
 ' an error, since a background preview should never interrupt browsing.
 
 sub restartPreviewDebounce()
+    if m.livePreviewEnabled = false then return
     m.previewDebounceTimer.control = "stop"
     m.previewDebounceTimer.control = "start"
+end sub
+
+sub onLivePreviewEnabledChange(event as object)
+    m.livePreviewEnabled = event.getData()
+    if m.livePreviewEnabled = false
+        stopPreview()
+    else
+        restartPreviewDebounce()
+    end if
 end sub
 
 sub onPreviewDebounceFire(event as object)

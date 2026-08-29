@@ -4,6 +4,42 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: Settings toggle to disable Roku live preview
+
+Follow-up to the live-preview feature below - each preview holds a tuner
+while it plays, which is a real constraint for anyone with only 2-4 tuners,
+so it needed to be an escape hatch rather than an always-on behavior.
+
+- New "Live Preview" row in Settings (`SettingsScreen.xml`/`.brs`),
+  Up/Down toggles On/Off (previously-unbound keys on this screen; Left/Right
+  was already codec, OK was already edit-URL). Grew the settings panel
+  (820px → 930px tall) to fit it without cramming.
+- Persisted to registry (`livePreviewEnabled`, "on"/"off", default on -
+  most users benefit from it and it's already debounced/best-effort-silent).
+  Threaded through `MainScene.brs` the same way as `streamCodec`:
+  read at launch, passed to both `GuideScreen` (to gate the actual preview
+  logic) and `SettingsScreen` (to show/edit it), written back via a new
+  `livePreviewSaved` out-field.
+- `GuideScreen.xml`/`.brs`: new `livePreviewEnabled` in-field with
+  `onChange` - flipping it off immediately calls `stopPreview()` even if a
+  preview is actively playing, not just on the next focus change.
+  `restartPreviewDebounce()` is now the single gate-check point for every
+  call site (channel focus, returning from Player/Settings).
+- Verified on-device (`.34`, since `.39`'s ECP is still in Limited mode -
+  see below): toggled off in Settings, returned to the guide, scrolled
+  through several rows - `/stream/metrics` confirmed zero new sessions
+  (previously one per settled focus), and the preview box stayed empty.
+  Toggled back on and it resumed normally.
+
+**Test device note**: per user request, `.39` is now the default
+`ROKU_IP` in `roku/.env` for future sessions. It currently has ECP
+("Control by mobile apps") set to Limited mode, which blocks the
+keypress/launch/query-apps remote-driving this session has relied on for
+on-device verification (screenshots still work, since that's a separate
+HTTP mechanism, not ECP) - loosen that under Settings → System → Advanced
+system settings on the device if full remote verification is wanted there
+too.
+
 ### Added: Roku guide UX - live preview, recently-watched pinning, now/next overlay
 
 Three related UX features, built on `feature/roku-ux-preview-favorites-epg`:

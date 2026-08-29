@@ -7,6 +7,7 @@ sub init()
     m.screenStack = []
     m.serverUrl = readServerUrl()
     m.streamCodec = readStreamCodec()
+    m.livePreviewEnabled = readLivePreviewEnabled()
 
     ' GuideScreen is pushed first so its guide-data fetch starts immediately
     ' in the background, then SplashScreen is pushed on top of it (pushScreen
@@ -86,6 +87,30 @@ sub writeStreamCodec(codec as string)
     sec.Flush()
 end sub
 
+' Defaults to on - most users benefit from it, and it's already debounced
+' and best-effort-silent (see GuideScreen.brs). Users with few tuners can
+' turn it off in Settings (Up/Down) since each preview holds a tuner while
+' it plays.
+function readLivePreviewEnabled() as boolean
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return true
+    if sec.Exists("livePreviewEnabled") and sec.Read("livePreviewEnabled") = "off"
+        return false
+    end if
+    return true
+end function
+
+sub writeLivePreviewEnabled(enabled as boolean)
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return
+    if enabled
+        sec.Write("livePreviewEnabled", "on")
+    else
+        sec.Write("livePreviewEnabled", "off")
+    end if
+    sec.Flush()
+end sub
+
 ' --- recently watched -------------------------------------------------------
 ' Local-only (not synced with the web app's server-side favorites) - a
 ' most-recent-first list of channel numbers, capped at RecentChannelsMax()
@@ -162,6 +187,7 @@ sub showGuide()
     screen = CreateObject("roSGNode", "GuideScreen")
     screen.serverUrl = m.serverUrl
     screen.recentChannels = readRecentChannels()
+    screen.livePreviewEnabled = m.livePreviewEnabled
     screen.observeField("launchPlayer", "onLaunchPlayer")
     screen.observeField("openSettings", "onOpenSettings")
     m.guideScreen = screen
@@ -224,8 +250,10 @@ sub onOpenSettings(event as object)
     screen = CreateObject("roSGNode", "SettingsScreen")
     screen.serverUrl = m.serverUrl
     screen.streamCodec = m.streamCodec
+    screen.livePreviewEnabled = m.livePreviewEnabled
     screen.observeField("saved", "onSettingsSaved")
     screen.observeField("codecSaved", "onCodecSaved")
+    screen.observeField("livePreviewSaved", "onLivePreviewSaved")
     screen.observeField("closed", "onSettingsClosed")
     pushScreen(screen)
 end sub
@@ -254,6 +282,16 @@ sub onCodecSaved(event as object)
     if codec = invalid or codec = "" then return
     m.streamCodec = normalizeStreamCodec(codec)
     writeStreamCodec(m.streamCodec)
+end sub
+
+sub onLivePreviewSaved(event as object)
+    enabled = event.getData()
+    if enabled = invalid then return
+    m.livePreviewEnabled = enabled
+    writeLivePreviewEnabled(enabled)
+    if m.guideScreen <> invalid
+        m.guideScreen.livePreviewEnabled = enabled
+    end if
 end sub
 
 ' --- called from main.brs's message loop --------------------------------

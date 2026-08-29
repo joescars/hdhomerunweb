@@ -4,10 +4,13 @@
         <!-- in -->
         <field id="serverUrl" type="string" />
         <field id="streamCodec" type="string" />
+        <field id="livePreviewEnabled" type="boolean" />
         <!-- out: fires with the new URL string when the user saves -->
         <field id="saved" type="string" alwaysNotify="true" />
         <!-- out: fires with the selected codec when changed -->
         <field id="codecSaved" type="string" alwaysNotify="true" />
+        <!-- out: fires with the new on/off state when changed -->
+        <field id="livePreviewSaved" type="boolean" alwaysNotify="true" />
         <!-- out: fires when the user backs out -->
         <field id="closed" type="boolean" alwaysNotify="true" />
         <!-- callable from MainScene -->
@@ -17,8 +20,8 @@
     <children>
         <Rectangle translation="[0, 0]" width="1920" height="1080" color="0x050A12FF" />
 
-        <Group translation="[260, 130]">
-            <Rectangle width="1400" height="820" color="0x0A1428F4" />
+        <Group translation="[260, 100]">
+            <Rectangle width="1400" height="930" color="0x0A1428F4" />
             <Rectangle width="1400" height="4" color="0x38BDF8FF" />
 
             <Label
@@ -109,24 +112,60 @@
                 color="0x9CB0C4FF" />
 
             <Label
-                id="statusLabel"
-                translation="[56, 636]"
+                translation="[56, 630]"
                 width="1288"
-                height="44"
+                height="34"
+                font="font:SmallBoldSystemFont"
+                text="Live Preview"
+                color="0xE2E8F0FF" />
+
+            <Rectangle
+                translation="[56, 664]"
+                width="1288"
+                height="60"
+                color="0x101D33FF" />
+            <Rectangle
+                translation="[56, 664]"
+                width="1288"
+                height="2"
+                color="0x334155FF" />
+            <Label
+                id="livePreviewLabel"
+                translation="[82, 664]"
+                width="1236"
+                height="60"
+                vertAlign="center"
+                font="font:MediumSystemFont"
+                color="0xFFFFFFFF" />
+
+            <Label
+                translation="[56, 730]"
+                width="1288"
+                height="56"
+                font="font:SmallSystemFont"
+                wrap="true"
+                text="Up/Down toggles live preview while browsing the guide. Turn off if you have few tuners - each preview uses one while it plays."
+                color="0x9CB0C4FF" />
+
+            <Label
+                id="statusLabel"
+                translation="[56, 800]"
+                width="1288"
+                height="40"
                 font="font:SmallSystemFont"
                 color="0x38BDF8FF" />
 
             <Rectangle
-                translation="[56, 718]"
+                translation="[56, 858]"
                 width="1288"
                 height="62"
                 color="0x0F1D30FF" />
             <Label
-                translation="[84, 736]"
+                translation="[84, 876]"
                 width="1228"
                 height="28"
                 font="font:SmallSystemFont"
-                text="OK: Edit URL   Left/Right: Mode   Back: Return to Guide"
+                text="OK: Edit URL   Left/Right: Mode   Up/Down: Preview   Back: Return to Guide"
                 color="0xB6C7D8FF" />
         </Group>
     </children>
