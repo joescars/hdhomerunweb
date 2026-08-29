@@ -103,7 +103,7 @@ async function runFfprobeJson(input, options = {}) {
   const ffprobeArgs = ['-v', 'error'];
   if (probeSize) ffprobeArgs.push('-probesize', String(probeSize));
   if (analyzeDuration) ffprobeArgs.push('-analyzeduration', String(analyzeDuration));
-  ffprobeArgs.push('-show_streams', '-print_format', 'json', input);
+  ffprobeArgs.push('-show_streams', '-show_format', '-print_format', 'json', input);
 
   let lastError = null;
 
@@ -151,6 +151,51 @@ function parseCaptionProbeResult(probeJson) {
     closedCaptions,
     subtitleTrackCount,
     videoCodec: videoStream ? videoStream.codec_name : null,
+  };
+}
+
+// "60000/1001" -> "59.94", "25/1" -> "25". ffprobe reports frame rates as
+// fractions rather than decimals.
+function parseFrameRateFraction(fraction) {
+  if (!fraction || typeof fraction !== 'string') return null;
+  const [num, den] = fraction.split('/').map(Number);
+  if (!num || !den) return null;
+  const value = num / den;
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function parseMediaInfo(probeJson) {
+  const streams = Array.isArray(probeJson && probeJson.streams) ? probeJson.streams : [];
+  const format = (probeJson && probeJson.format) || {};
+  const videoStream = streams.find((s) => s.codec_type === 'video') || null;
+  const audioStream = streams.find((s) => s.codec_type === 'audio') || null;
+
+  const video = videoStream ? {
+    codec: videoStream.codec_name || null,
+    profile: videoStream.profile || null,
+    width: videoStream.width || null,
+    height: videoStream.height || null,
+    resolutionLabel: videoStream.height
+      ? `${videoStream.height}${videoStream.field_order && videoStream.field_order !== 'progressive' ? 'i' : 'p'}`
+      : null,
+    frameRate: parseFrameRateFraction(videoStream.avg_frame_rate) || parseFrameRateFraction(videoStream.r_frame_rate),
+    pixelFormat: videoStream.pix_fmt || null,
+    bitrateBps: videoStream.bit_rate ? Number(videoStream.bit_rate) : null,
+  } : null;
+
+  const audio = audioStream ? {
+    codec: audioStream.codec_name || null,
+    sampleRateHz: audioStream.sample_rate ? Number(audioStream.sample_rate) : null,
+    channels: audioStream.channels || null,
+    channelLayout: audioStream.channel_layout || null,
+    bitrateBps: audioStream.bit_rate ? Number(audioStream.bit_rate) : null,
+  } : null;
+
+  return {
+    video,
+    audio,
+    formatBitrateBps: format.bit_rate ? Number(format.bit_rate) : null,
   };
 }
 
@@ -496,6 +541,13 @@ function spawnFfmpeg(channel, codec, profile) {
       lastProbeAt: null,
       lastProbeError: null,
     },
+    mediaInfo: {
+      video: null,
+      audio: null,
+      formatBitrateBps: null,
+      lastProbeAt: null,
+      lastProbeError: null,
+    },
     webvtt: {
       mode: WEBVTT_SIDECAR_MODE,
       state: 'idle',
@@ -658,12 +710,30 @@ async function maybeProbeCaptionTarget(session, resultField, promiseField, input
         lastProbeAt: Date.now(),
         lastProbeError: null,
       };
+
+      // The output probe (resultField "captions") already has the full
+      // ffprobe payload in hand - piggyback resolution/framerate/bitrate
+      // extraction on it rather than running ffprobe a second time.
+      if (resultField === 'captions' && session.mediaInfo) {
+        session.mediaInfo = {
+          ...parseMediaInfo(probeJson),
+          lastProbeAt: Date.now(),
+          lastProbeError: null,
+        };
+      }
     } catch (err) {
       session[resultField] = {
         ...session[resultField],
         lastProbeAt: Date.now(),
         lastProbeError: err && err.message ? err.message : 'Caption probe failed',
       };
+      if (resultField === 'captions' && session.mediaInfo) {
+        session.mediaInfo = {
+          ...session.mediaInfo,
+          lastProbeAt: Date.now(),
+          lastProbeError: err && err.message ? err.message : 'Media probe failed',
+        };
+      }
     } finally {
       session[promiseField] = null;
     }
@@ -787,6 +857,48 @@ function getMetrics() {
   };
 }
 
+// ffprobe's per-stream bit_rate field is frequently unpopulated for raw
+// MPEG-TS/HLS (it's metadata most commonly carried in containers like MP4,
+// not TS) - measuring actual bytes-on-disk over the segment window covers
+// both transcoded output and, notably, "direct" mode where there's no
+// configured target bitrate to fall back on at all.
+function computeMeasuredBitrate(session) {
+  try {
+    const playlistText = fs.readFileSync(session.playlist, 'utf8');
+    const lines = playlistText.split('\n');
+    let totalDurationSec = 0;
+    let totalBytes = 0;
+    let segmentCount = 0;
+
+    for (let i = 0; i < lines.length; i += 1) {
+      const line = lines[i].trim();
+      if (!line.startsWith('#EXTINF:')) continue;
+      const duration = parseFloat(line.slice('#EXTINF:'.length));
+      const filename = (lines[i + 1] || '').trim();
+      if (!Number.isFinite(duration) || !filename || filename.startsWith('#')) continue;
+
+      const segmentPath = path.join(session.dir, filename);
+      try {
+        const stat = fs.statSync(segmentPath);
+        totalBytes += stat.size;
+        totalDurationSec += duration;
+        segmentCount += 1;
+      } catch {
+        // Segment already rolled off (delete_segments) - skip it.
+      }
+    }
+
+    if (totalDurationSec <= 0 || segmentCount === 0) return null;
+    return {
+      bitrateBps: Math.round((totalBytes * 8) / totalDurationSec),
+      windowSeconds: Number(totalDurationSec.toFixed(2)),
+      segmentCount,
+    };
+  } catch {
+    return null;
+  }
+}
+
 function getSessionInfo(channel, codec, profile) {
   const session = sessions.get(sessionKey(channel, codec, profile));
   if (!session) return null;
@@ -811,6 +923,10 @@ function getSessionInfo(channel, codec, profile) {
     sourceCaptions: {
       ...session.sourceCaptions,
       probeInFlight: !!session.sourceCaptionProbePromise,
+    },
+    mediaInfo: {
+      ...session.mediaInfo,
+      measured: computeMeasuredBitrate(session),
     },
     webvtt: {
       ...session.webvtt,

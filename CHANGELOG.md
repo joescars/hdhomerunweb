@@ -4,6 +4,47 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: real resolution/framerate/bitrate in Roku stream diagnostics
+
+The stats panel only ever showed *configured targets* (`Video target: 3200k
+(h264_qsv)`), which is meaningless in Direct mode since there's no encoder
+to target anything - and never showed resolution, frame rate, or audio
+format at all for any mode. Requested after Direct mode landed, since
+that's exactly when "what is this actually broadcasting?" becomes an
+interesting question ffprobe can answer but the app wasn't surfacing.
+
+- `src/stream.js`: the existing periodic output-probe (already running
+  every 15s for caption detection, in `maybeProbeCaptionTarget`) now also
+  extracts video (`codec`, `profile`, `width`/`height`, a friendly
+  `resolutionLabel` like `720p`/`1080i`, `frameRate` decoded from ffprobe's
+  fraction format, `pixelFormat`) and audio (`codec`, `sampleRateHz`,
+  `channels`, `channelLayout`) info via a new `parseMediaInfo()` — same
+  ffprobe call, no added cost. Stored in a new `session.mediaInfo`, exposed
+  on `/stream/:channel/:codec/:profile/stats`.
+- ffprobe's per-stream `bit_rate` field turned out to be unpopulated for
+  MPEG-TS/HLS content (it's metadata more commonly carried in containers
+  like MP4) - `formatBitrateBps` from `-show_format` was null too. Added a
+  separate `computeMeasuredBitrate()` that reads the actual segment files
+  referenced by the live `.m3u8` (`#EXTINF` duration × file size on disk)
+  and computes real bytes-per-second - cheap local FS reads, no extra
+  ffprobe/ffmpeg process, refreshed on every `/stats` request rather than
+  throttled to the 15s probe interval. This is the only reliable bitrate
+  number for Direct mode, where there's no configured target to fall back
+  on, and is more honest than a target/max rate for transcoded modes too
+  (shows what's actually being delivered, not what was asked for).
+- `roku/components/PlayerScreen.brs`: stats panel now shows "Actual video:
+  720p • 59.94 fps • MPEG2VIDEO Main" / "Actual audio: AC3 • 48kHz •
+  stereo" / "Measured bitrate: 6.48 Mbps (last N segments)" lines. Also
+  removed the Captions/Caption probe error/Input captions/Input probe
+  error/WebVTT sidecar/WebVTT error lines per request, now that captions
+  work reliably via the `eia608/1` `SubtitleTracks` fix and that whole
+  diagnostic cluster (built when captions were still broken) was just
+  noise going forward.
+- Bumped Roku `build_version` to 39. Verified on-device: channel 3.5
+  (Direct mode) correctly showed 480p/29.97fps/MPEG2VIDEO Main, AC3/48kHz/
+  stereo, and 0.94 Mbps measured - all independently plausible for an SD
+  ATSC subchannel.
+
 ### Fixed: Roku Settings screen showed stale values on first open
 
 `roku/components/SettingsScreen.brs`'s `init()` called `updateUrlLabel()`/

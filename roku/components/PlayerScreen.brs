@@ -326,9 +326,7 @@ sub onStatsResult(event as object)
 
     if session <> invalid
         ffmpeg = session.ffmpeg
-        captions = session.captions
-        sourceCaptions = session.sourceCaptions
-        webvtt = session.webvtt
+        mediaInfo = session.mediaInfo
         progress = session.progress
 
         videoTarget = "n/a"
@@ -344,73 +342,40 @@ sub onStatsResult(event as object)
         lines.Push("Video target: " + videoTarget + " (" + videoEncoder + ")")
         lines.Push("Audio target: " + audioTarget + " (" + audioEncoder + ")")
 
-        captionModeText = "n/a"
-        captionStrategyText = "n/a"
-        if ffmpeg <> invalid
-            if ffmpeg.captionMode <> invalid and ffmpeg.captionMode <> "" then captionModeText = ffmpeg.captionMode.ToStr()
-            if ffmpeg.captionStrategy <> invalid and ffmpeg.captionStrategy <> "" then captionStrategyText = ffmpeg.captionStrategy.ToStr()
-        end if
+        if mediaInfo <> invalid
+            video = mediaInfo.video
+            audio = mediaInfo.audio
+            measured = mediaInfo.measured
 
-        captionDetectedText = "unknown"
-        captionDetailText = ""
-        if captions <> invalid
-            if captions.detected = true
-                captionDetectedText = "detected"
-            else if captions.detected = false
-                captionDetectedText = "not detected"
+            if video <> invalid
+                resText = "n/a"
+                if video.resolutionLabel <> invalid and video.resolutionLabel <> "" then resText = video.resolutionLabel.ToStr()
+                fpsVideoText = "n/a"
+                if video.frameRate <> invalid and video.frameRate <> "" then fpsVideoText = video.frameRate.ToStr() + " fps"
+                codecText2 = "n/a"
+                if video.codec <> invalid and video.codec <> "" then codecText2 = UCase(video.codec.ToStr())
+                profileText2 = ""
+                if video.profile <> invalid and video.profile <> "" then profileText2 = " " + video.profile.ToStr()
+                lines.Push("Actual video: " + resText + "  •  " + fpsVideoText + "  •  " + codecText2 + profileText2)
             end if
 
-            if captions.closedCaptions = true
-                captionDetailText = "embedded CC"
-            else if captions.subtitleTrackCount <> invalid and captions.subtitleTrackCount > 0
-                captionDetailText = captions.subtitleTrackCount.ToStr() + " subtitle track(s)"
-            end if
-        end if
-
-        captionLine = "Captions: " + captionDetectedText + "  •  Mode " + captionModeText + "  •  Strategy " + captionStrategyText
-        if captionDetailText <> "" then captionLine = captionLine + " (" + captionDetailText + ")"
-        lines.Push(captionLine)
-
-        if captions <> invalid and captions.lastProbeError <> invalid and captions.lastProbeError <> ""
-            lines.Push("Caption probe error: " + captions.lastProbeError)
-        end if
-
-        sourceDetectedText = "unknown"
-        sourceDetailText = ""
-        if sourceCaptions <> invalid
-            if sourceCaptions.source = "disabled"
-                sourceDetectedText = "probe disabled"
+            if audio <> invalid
+                audioCodecText = "n/a"
+                if audio.codec <> invalid and audio.codec <> "" then audioCodecText = UCase(audio.codec.ToStr())
+                sampleRateText = ""
+                if audio.sampleRateHz <> invalid then sampleRateText = "  •  " + Int(audio.sampleRateHz / 1000).ToStr() + "kHz"
+                channelsText = ""
+                if audio.channelLayout <> invalid and audio.channelLayout <> "" then channelsText = "  •  " + audio.channelLayout.ToStr()
+                lines.Push("Actual audio: " + audioCodecText + sampleRateText + channelsText)
             end if
 
-            if sourceCaptions.detected = true
-                sourceDetectedText = "detected"
-            else if sourceCaptions.detected = false
-                sourceDetectedText = "not detected"
+            if measured <> invalid and measured.bitrateBps <> invalid
+                mbpsRounded = Int(measured.bitrateBps / 10000.0 + 0.5) / 100
+                lines.Push("Measured bitrate: " + mbpsRounded.ToStr() + " Mbps (last " + measured.segmentCount.ToStr() + " segments)")
             end if
 
-            if sourceCaptions.closedCaptions = true
-                sourceDetailText = "embedded CC"
-            else if sourceCaptions.subtitleTrackCount <> invalid and sourceCaptions.subtitleTrackCount > 0
-                sourceDetailText = sourceCaptions.subtitleTrackCount.ToStr() + " subtitle track(s)"
-            end if
-        end if
-
-        sourceLine = "Input captions: " + sourceDetectedText
-        if sourceDetailText <> "" then sourceLine = sourceLine + " (" + sourceDetailText + ")"
-        lines.Push(sourceLine)
-
-        if sourceCaptions <> invalid and sourceCaptions.source <> "disabled" and sourceCaptions.lastProbeError <> invalid and sourceCaptions.lastProbeError <> ""
-            lines.Push("Input probe error: " + sourceCaptions.lastProbeError)
-        end if
-
-        if webvtt <> invalid
-            webvttState = "unknown"
-            if webvtt.state <> invalid and webvtt.state <> "" then webvttState = webvtt.state.ToStr()
-            webvttReason = ""
-            if webvtt.reason <> invalid and webvtt.reason <> "" then webvttReason = " (" + webvtt.reason.ToStr() + ")"
-            lines.Push("WebVTT sidecar: " + webvttState + webvttReason)
-            if webvtt.lastError <> invalid and webvtt.lastError <> ""
-                lines.Push("WebVTT error: " + webvtt.lastError)
+            if mediaInfo.lastProbeError <> invalid and mediaInfo.lastProbeError <> ""
+                lines.Push("Media probe error: " + mediaInfo.lastProbeError)
             end if
         end if
 
