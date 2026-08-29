@@ -28,12 +28,28 @@ end sub
 sub onScreenFocus()
     m.top.setFocus(true)
     m.channels = m.top.channels
+    m.top.codec = normalizeCodec(m.top.codec)
+    if m.top.streamPath = invalid or m.top.streamPath = ""
+        m.top.streamPath = buildStreamPath(m.top.channelNumber)
+    end if
     resolveCurrentIndex()
     if m.tuningStarted = false
         m.tuningStarted = true
         startTuning()
     end if
 end sub
+
+function normalizeCodec(codec as dynamic) as string
+    if codec = invalid then return "hevc"
+    value = LCase(codec.ToStr())
+    if value = "h264" then return "h264"
+    return "hevc"
+end function
+
+function buildStreamPath(channelNumber as dynamic) as string
+    codec = normalizeCodec(m.top.codec)
+    return "/stream/" + channelNumber.ToStr() + "/" + codec + "/stream.m3u8"
+end function
 
 sub startTuning()
     if m.top.serverUrl = invalid or m.top.serverUrl = "" or m.top.channelNumber = invalid or m.top.channelNumber = ""
@@ -47,13 +63,14 @@ sub startTuning()
     task = CreateObject("roSGNode", "StreamStartTask")
     task.serverUrl = m.top.serverUrl
     task.channelNumber = m.top.channelNumber
+    task.codec = normalizeCodec(m.top.codec)
     task.observeField("result", "onStreamStartResult")
     task.control = "RUN"
     m.streamTask = task
 end sub
 
 sub refreshStatsContext()
-    m.statsCodec = "hevc"
+    m.statsCodec = normalizeCodec(m.top.codec)
     m.statsProfile = "medium"
 
     if m.top.streamPath = invalid or m.top.streamPath = "" then return
@@ -96,7 +113,7 @@ sub changeChannelBy(delta as integer)
     m.currentIndex = newIdx
     m.top.channelNumber = ch.channelNumber
     m.top.channelName = ch.channelName
-    m.top.streamPath = ch.streamPath
+    m.top.streamPath = buildStreamPath(ch.channelNumber)
 
     if m.streamTask <> invalid
         m.streamTask.control = "STOP"
@@ -290,6 +307,9 @@ sub onStatsResult(event as object)
 
     if session <> invalid
         ffmpeg = session.ffmpeg
+        captions = session.captions
+        sourceCaptions = session.sourceCaptions
+        webvtt = session.webvtt
         progress = session.progress
 
         videoTarget = "n/a"
@@ -304,6 +324,76 @@ sub onStatsResult(event as object)
         end if
         lines.Push("Video target: " + videoTarget + " (" + videoEncoder + ")")
         lines.Push("Audio target: " + audioTarget + " (" + audioEncoder + ")")
+
+        captionModeText = "n/a"
+        captionStrategyText = "n/a"
+        if ffmpeg <> invalid
+            if ffmpeg.captionMode <> invalid and ffmpeg.captionMode <> "" then captionModeText = ffmpeg.captionMode.ToStr()
+            if ffmpeg.captionStrategy <> invalid and ffmpeg.captionStrategy <> "" then captionStrategyText = ffmpeg.captionStrategy.ToStr()
+        end if
+
+        captionDetectedText = "unknown"
+        captionDetailText = ""
+        if captions <> invalid
+            if captions.detected = true
+                captionDetectedText = "detected"
+            else if captions.detected = false
+                captionDetectedText = "not detected"
+            end if
+
+            if captions.closedCaptions = true
+                captionDetailText = "embedded CC"
+            else if captions.subtitleTrackCount <> invalid and captions.subtitleTrackCount > 0
+                captionDetailText = captions.subtitleTrackCount.ToStr() + " subtitle track(s)"
+            end if
+        end if
+
+        captionLine = "Captions: " + captionDetectedText + "  •  Mode " + captionModeText + "  •  Strategy " + captionStrategyText
+        if captionDetailText <> "" then captionLine = captionLine + " (" + captionDetailText + ")"
+        lines.Push(captionLine)
+
+        if captions <> invalid and captions.lastProbeError <> invalid and captions.lastProbeError <> ""
+            lines.Push("Caption probe error: " + captions.lastProbeError)
+        end if
+
+        sourceDetectedText = "unknown"
+        sourceDetailText = ""
+        if sourceCaptions <> invalid
+            if sourceCaptions.source = "disabled"
+                sourceDetectedText = "probe disabled"
+            end if
+
+            if sourceCaptions.detected = true
+                sourceDetectedText = "detected"
+            else if sourceCaptions.detected = false
+                sourceDetectedText = "not detected"
+            end if
+
+            if sourceCaptions.closedCaptions = true
+                sourceDetailText = "embedded CC"
+            else if sourceCaptions.subtitleTrackCount <> invalid and sourceCaptions.subtitleTrackCount > 0
+                sourceDetailText = sourceCaptions.subtitleTrackCount.ToStr() + " subtitle track(s)"
+            end if
+        end if
+
+        sourceLine = "Input captions: " + sourceDetectedText
+        if sourceDetailText <> "" then sourceLine = sourceLine + " (" + sourceDetailText + ")"
+        lines.Push(sourceLine)
+
+        if sourceCaptions <> invalid and sourceCaptions.source <> "disabled" and sourceCaptions.lastProbeError <> invalid and sourceCaptions.lastProbeError <> ""
+            lines.Push("Input probe error: " + sourceCaptions.lastProbeError)
+        end if
+
+        if webvtt <> invalid
+            webvttState = "unknown"
+            if webvtt.state <> invalid and webvtt.state <> "" then webvttState = webvtt.state.ToStr()
+            webvttReason = ""
+            if webvtt.reason <> invalid and webvtt.reason <> "" then webvttReason = " (" + webvtt.reason.ToStr() + ")"
+            lines.Push("WebVTT sidecar: " + webvttState + webvttReason)
+            if webvtt.lastError <> invalid and webvtt.lastError <> ""
+                lines.Push("WebVTT error: " + webvtt.lastError)
+            end if
+        end if
 
         fpsText = "n/a"
         if progress <> invalid and progress.fps <> invalid then fpsText = progress.fps.ToStr()

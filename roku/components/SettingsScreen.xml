@@ -3,8 +3,11 @@
     <interface>
         <!-- in -->
         <field id="serverUrl" type="string" />
+        <field id="streamCodec" type="string" />
         <!-- out: fires with the new URL string when the user saves -->
         <field id="saved" type="string" alwaysNotify="true" />
+        <!-- out: fires with the selected codec when changed -->
+        <field id="codecSaved" type="string" alwaysNotify="true" />
         <!-- out: fires when the user backs out -->
         <field id="closed" type="boolean" alwaysNotify="true" />
         <!-- callable from MainScene -->
@@ -64,15 +67,50 @@
             <Label
                 translation="[56, 342]"
                 width="1288"
-                height="140"
+                height="70"
                 font="font:SmallSystemFont"
                 wrap="true"
-                text="Press OK to edit. Example: http://192.168.1.50:8080"
+                text="Press OK to edit the server URL."
+                color="0x9CB0C4FF" />
+
+            <Label
+                translation="[56, 426]"
+                width="1288"
+                height="34"
+                font="font:SmallBoldSystemFont"
+                text="Preferred Stream Codec"
+                color="0xE2E8F0FF" />
+
+            <Rectangle
+                translation="[56, 470]"
+                width="1288"
+                height="72"
+                color="0x101D33FF" />
+            <Rectangle
+                translation="[56, 470]"
+                width="1288"
+                height="2"
+                color="0x334155FF" />
+            <Label
+                id="codecLabel"
+                translation="[82, 488]"
+                width="1236"
+                height="38"
+                font="font:MediumSystemFont"
+                color="0xFFFFFFFF" />
+
+            <Label
+                translation="[56, 554]"
+                width="1288"
+                height="40"
+                font="font:SmallSystemFont"
+                wrap="true"
+                text="Left/Right changes codec. Use H.264 if you need closed captions support."
                 color="0x9CB0C4FF" />
 
             <Label
                 id="statusLabel"
-                translation="[56, 492]"
+                translation="[56, 620]"
                 width="1288"
                 height="44"
                 font="font:SmallSystemFont"
@@ -88,7 +126,7 @@
                 width="1228"
                 height="28"
                 font="font:SmallSystemFont"
-                text="OK: Edit URL     Back: Return to Guide"
+                text="OK: Edit URL   Left/Right: Codec   Back: Return to Guide"
                 color="0xB6C7D8FF" />
         </Group>
     </children>

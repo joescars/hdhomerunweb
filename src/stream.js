@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawn, execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -8,7 +8,15 @@ const hdhr = require('./hdhomerun');
 const STREAM_ROOT = path.join(os.tmpdir(), 'hdhomerun-web-streams');
 const IDLE_TIMEOUT_MS = 20_000;
 const READY_TIMEOUT_MS = 50_000;
+const CAPTION_PROBE_INTERVAL_MS = 15_000;
 const DEFAULT_PROFILE = 'medium';
+const WEBVTT_SIDECAR_MODE = String(process.env.WEBVTT_SIDECAR_MODE || 'on').toLowerCase() === 'off' ? 'off' : 'on';
+const SOURCE_CAPTION_PROBE = String(process.env.SOURCE_CAPTION_PROBE || 'off').toLowerCase() === 'on';
+const STREAM_DECODE_MODE = (
+  String(process.env.STREAM_DECODE_MODE || process.env.CAPTION_DECODE_MODE || 'qsv').toLowerCase() === 'sw'
+    ? 'sw'
+    : 'qsv'
+);
 
 const QUALITY_PROFILES = {
   low: {
@@ -39,6 +47,257 @@ const CODECS = {
   h264: 'h264_qsv',
   hevc: 'hevc_qsv',
 };
+
+// Phase 1 caption support: keep the existing hardware transcode path and
+// explicitly request embedded A/53 captions where the encoder supports it.
+//
+// CAPTION_MODE options:
+//   - embedded (default): attempt embedded CC passthrough in the output video
+//   - off: disable caption-specific encoder flags
+const CAPTION_MODE = process.env.CAPTION_MODE === 'off' ? 'off' : 'embedded';
+const FFPROBE_CANDIDATES = [
+  process.env.FFPROBE_BIN,
+  '/usr/lib/jellyfin-ffmpeg/ffprobe',
+  'ffprobe',
+].filter(Boolean);
+
+function execFileAsync(file, args, options = {}) {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, options, (error, stdout, stderr) => {
+      if (error) {
+        error.stdout = stdout;
+        error.stderr = stderr;
+        reject(error);
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+  });
+}
+
+async function runFfprobeJson(input, options = {}) {
+  const timeoutMs = Number(options.timeoutMs || 8_000);
+  const probeSize = options.probeSize || null;
+  const analyzeDuration = options.analyzeDuration || null;
+
+  const ffprobeArgs = ['-v', 'error'];
+  if (probeSize) ffprobeArgs.push('-probesize', String(probeSize));
+  if (analyzeDuration) ffprobeArgs.push('-analyzeduration', String(analyzeDuration));
+  ffprobeArgs.push('-show_streams', '-print_format', 'json', input);
+
+  let lastError = null;
+
+  for (const ffprobeBin of FFPROBE_CANDIDATES) {
+    try {
+      const { stdout } = await execFileAsync(
+        ffprobeBin,
+        ffprobeArgs,
+        {
+          timeout: timeoutMs,
+          maxBuffer: 4 * 1024 * 1024,
+        }
+      );
+
+      return JSON.parse(stdout || '{}');
+    } catch (err) {
+      lastError = err;
+      if (err && err.code === 'ENOENT') {
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError || new Error('No ffprobe binary found');
+}
+
+function parseCaptionProbeResult(probeJson) {
+  const streams = Array.isArray(probeJson && probeJson.streams) ? probeJson.streams : [];
+  const videoStream = streams.find((s) => s.codec_type === 'video') || null;
+  const subtitleTracks = streams.filter((s) => s.codec_type === 'subtitle');
+
+  const closedCaptions = !!(
+    videoStream
+    && (
+      Number(videoStream.closed_captions) === 1
+      || Number(videoStream.disposition && videoStream.disposition.captions) === 1
+    )
+  );
+
+  const subtitleTrackCount = subtitleTracks.length;
+
+  return {
+    detected: closedCaptions || subtitleTrackCount > 0,
+    closedCaptions,
+    subtitleTrackCount,
+    videoCodec: videoStream ? videoStream.codec_name : null,
+  };
+}
+
+function isProcessAlive(proc) {
+  if (!proc) return false;
+  if (proc.exitCode !== null || proc.killed) return false;
+  return true;
+}
+
+function startWebVttSidecar(session) {
+  if (!session) return;
+  if (isProcessAlive(session.webvttProcess)) return;
+
+  if (WEBVTT_SIDECAR_MODE !== 'on') {
+    session.webvtt = {
+      ...session.webvtt,
+      state: 'disabled',
+      mode: WEBVTT_SIDECAR_MODE,
+      lastUpdateAt: Date.now(),
+    };
+    return;
+  }
+
+  const lavfiSource = session.sourceUrl
+    .replace(/\\/g, '\\\\')
+    .replace(/:/g, '\\:')
+    .replace(/'/g, "\\'");
+
+  const args = [
+    '-hide_banner', '-loglevel', 'warning', '-y',
+    '-f', 'lavfi',
+    '-i', `movie='${lavfiSource}'[out0+subcc]`,
+    '-map', 's:0',
+    '-c:s', 'webvtt',
+    '-f', 'webvtt',
+    'pipe:1',
+  ];
+
+  const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  let stderrTail = '';
+  let headerStripped = false;
+
+  try {
+    fs.writeFileSync(session.webvtt.path, 'WEBVTT\n\n');
+  } catch (err) {
+    session.webvtt = {
+      ...session.webvtt,
+      state: 'failed',
+      reason: 'sidecar_open_failed',
+      lastUpdateAt: Date.now(),
+      lastError: err && err.message ? err.message : 'Could not initialize sidecar output',
+    };
+    return;
+  }
+
+  session.webvtt = {
+    ...session.webvtt,
+    state: 'running',
+    mode: WEBVTT_SIDECAR_MODE,
+    lastUpdateAt: Date.now(),
+    lastError: null,
+    stderrTail: null,
+  };
+  session.webvttProcess = proc;
+
+  proc.stdout.on('data', (chunk) => {
+    let text = chunk.toString();
+    if (!text) return;
+
+    if (!headerStripped) {
+      text = text.replace(/^WEBVTT\s*/i, '');
+      headerStripped = true;
+    }
+
+    if (text.trim().length > 0) {
+      try {
+        fs.appendFileSync(session.webvtt.path, text);
+      } catch (err) {
+        session.webvtt = {
+          ...session.webvtt,
+          state: 'failed',
+          reason: 'sidecar_write_failed',
+          lastUpdateAt: Date.now(),
+          lastError: err && err.message ? err.message : 'Could not write sidecar output',
+        };
+        return;
+      }
+    }
+
+    session.webvtt = {
+      ...session.webvtt,
+      state: 'running',
+      reason: 'cues_streaming',
+      lastUpdateAt: Date.now(),
+      lastError: null,
+    };
+  });
+
+  proc.stderr.on('data', (chunk) => {
+    const text = chunk.toString();
+    stderrTail = (stderrTail + text).slice(-2000);
+    session.webvtt = {
+      ...session.webvtt,
+      lastUpdateAt: Date.now(),
+      stderrTail,
+    };
+  });
+
+  proc.on('exit', (code) => {
+    const failed = code !== 0;
+    let reason = failed ? 'ffmpeg_exit' : 'ended';
+    if (failed && /matches no streams|subcc|stream map .*matches no streams/i.test(stderrTail)) {
+      reason = 'no_subtitle_stream';
+    }
+
+    session.webvtt = {
+      ...session.webvtt,
+      state: failed ? 'failed' : 'ended',
+      reason,
+      lastUpdateAt: Date.now(),
+      lastError: failed ? (stderrTail || `ffmpeg exited with code ${code}`) : null,
+      stderrTail: stderrTail || null,
+    };
+  });
+}
+
+function getCaptionConfig(codec) {
+  if (CAPTION_MODE !== 'embedded') {
+    return {
+      ffmpegArgs: [],
+      active: false,
+      strategy: 'disabled',
+    };
+  }
+
+  // h264_qsv exposes -a53cc; hevc_qsv does not. Keep HEVC on pure hardware
+  // path without unsupported flags, and surface this in diagnostics.
+  if (codec === 'h264') {
+    return {
+      ffmpegArgs: ['-a53cc', '1'],
+      active: true,
+      strategy: 'a53cc_h264_qsv',
+    };
+  }
+
+  return {
+    ffmpegArgs: [],
+    active: false,
+    strategy: 'no_explicit_hevc_qsv_flag',
+  };
+}
+
+function getDecodeConfig() {
+  if (STREAM_DECODE_MODE === 'sw') {
+    return {
+      decoder: 'mpeg2video',
+      inputArgs: ['-init_hw_device', 'qsv=hw', '-filter_hw_device', 'hw', '-c:v', 'mpeg2video'],
+      preEncodeArgs: ['-vf', 'format=nv12,hwupload=extra_hw_frames=64'],
+    };
+  }
+
+  return {
+    decoder: 'mpeg2_qsv',
+    inputArgs: ['-hwaccel', 'qsv', '-hwaccel_output_format', 'qsv', '-c:v', 'mpeg2_qsv'],
+    preEncodeArgs: [],
+  };
+}
 
 const sessions = new Map();
 const metrics = {
@@ -81,6 +340,8 @@ function channelDir(channel, codec, profile) {
 function spawnFfmpeg(channel, codec, profile) {
   const normalizedProfile = normalizeProfile(profile);
   const profileConfig = QUALITY_PROFILES[normalizedProfile];
+  const captionConfig = getCaptionConfig(codec);
+  const decodeConfig = getDecodeConfig();
   const dir = channelDir(channel, codec, normalizedProfile);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
@@ -91,10 +352,13 @@ function spawnFfmpeg(channel, codec, profile) {
   const args = [
     '-hide_banner', '-loglevel', 'warning',
     '-probesize', '500k', '-analyzeduration', '1000000',
-    '-hwaccel', 'qsv', '-hwaccel_output_format', 'qsv', '-c:v', 'mpeg2_qsv',
+    ...decodeConfig.inputArgs,
     '-i', sourceUrl,
     '-map', '0:v:0', '-map', '0:a:0',
-    '-c:v', CODECS[codec], '-look_ahead', '0', '-forced_idr', '1',
+    ...decodeConfig.preEncodeArgs,
+    '-c:v', CODECS[codec],
+    ...captionConfig.ffmpegArgs,
+    '-look_ahead', '0', '-forced_idr', '1',
     '-b:v', profileConfig.videoBitrate,
     '-maxrate', profileConfig.maxrate,
     '-bufsize', profileConfig.bufsize,
@@ -119,6 +383,7 @@ function spawnFfmpeg(channel, codec, profile) {
     process: proc,
     dir,
     playlist,
+    sourceUrl,
     channel,
     codec,
     profile: normalizedProfile,
@@ -127,8 +392,13 @@ function spawnFfmpeg(channel, codec, profile) {
     lastHeartbeat: null,
     stopReason: null,
     ffmpeg: {
+      decodeMode: STREAM_DECODE_MODE,
+      videoDecoder: decodeConfig.decoder,
       videoEncoder: CODECS[codec],
       audioEncoder: 'aac',
+      captionMode: CAPTION_MODE,
+      captionActive: captionConfig.active,
+      captionStrategy: captionConfig.strategy,
       hlsTimeSeconds: 1,
       hlsListSize: 6,
       targetVideoBitrate: profileConfig.videoBitrate,
@@ -148,8 +418,65 @@ function spawnFfmpeg(channel, codec, profile) {
       lastUpdateAt: null,
     },
     stderrTail: () => stderrTail,
+    captions: {
+      detected: null,
+      closedCaptions: null,
+      subtitleTrackCount: null,
+      videoCodec: null,
+      source: 'output_ffprobe',
+      lastProbeAt: null,
+      lastProbeError: null,
+    },
+    webvtt: {
+      mode: WEBVTT_SIDECAR_MODE,
+      state: 'idle',
+      path: path.join(dir, 'captions.vtt'),
+      reason: null,
+      lastUpdateAt: null,
+      lastError: null,
+      stderrTail: null,
+    },
+    webvttProcess: null,
+    sourceCaptions: {
+      detected: null,
+      closedCaptions: null,
+      subtitleTrackCount: null,
+      videoCodec: null,
+      source: SOURCE_CAPTION_PROBE ? 'input_ffprobe' : 'disabled',
+      lastProbeAt: null,
+      lastProbeError: SOURCE_CAPTION_PROBE ? null : 'input probe disabled',
+    },
+    captionProbePromise: null,
+    sourceCaptionProbePromise: null,
     exited: false,
   };
+
+  try {
+    fs.writeFileSync(
+      session.webvtt.path,
+      `WEBVTT\n\nNOTE generated by hdhomerun-web sidecar test\n\n`
+    );
+    session.webvtt = {
+      ...session.webvtt,
+      state: 'placeholder',
+      reason: 'waiting_for_cues',
+      lastUpdateAt: Date.now(),
+      lastError: null,
+    };
+  } catch (err) {
+    session.webvtt = {
+      ...session.webvtt,
+      state: 'failed',
+      reason: 'placeholder_write_failed',
+      lastUpdateAt: Date.now(),
+      lastError: err && err.message ? err.message : 'Failed to create placeholder VTT',
+    };
+  }
+
+  console.info(
+    `[stream] session start channel=${channel} codec=${codec} profile=${normalizedProfile} captions=${captionConfig.strategy}`
+  );
+
   metrics.sessionsStarted += 1;
 
   function parseProgressLine(line) {
@@ -217,10 +544,89 @@ function spawnFfmpeg(channel, codec, profile) {
     console.info(
       `[stream] session exited channel=${channel} codec=${codec} profile=${normalizedProfile} reason=${session.stopReason || 'process_exit'}`
     );
+    if (session.stopReason === 'startup_error' && stderrTail) {
+      const oneLine = stderrTail.replace(/\s+/g, ' ').trim();
+      if (oneLine) {
+        console.warn(`[stream] ffmpeg tail channel=${channel} codec=${codec}: ${oneLine.slice(-1200)}`);
+      }
+    }
+    if (isProcessAlive(session.webvttProcess)) {
+      session.webvttProcess.kill('SIGTERM');
+    }
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
   return session;
+}
+
+async function maybeProbeCaptionTarget(session, resultField, promiseField, input, probeOptions = {}) {
+  if (!session || session.exited) return;
+
+  const target = session[resultField];
+  if (!target) return;
+
+  const now = Date.now();
+  if (
+    target.lastProbeAt
+    && (now - target.lastProbeAt) < CAPTION_PROBE_INTERVAL_MS
+  ) {
+    return;
+  }
+
+  if (session[promiseField]) {
+    await session[promiseField];
+    return;
+  }
+
+  session[promiseField] = (async () => {
+    try {
+      const probeJson = await runFfprobeJson(input, probeOptions);
+      const parsed = parseCaptionProbeResult(probeJson);
+
+      session[resultField] = {
+        ...session[resultField],
+        ...parsed,
+        lastProbeAt: Date.now(),
+        lastProbeError: null,
+      };
+    } catch (err) {
+      session[resultField] = {
+        ...session[resultField],
+        lastProbeAt: Date.now(),
+        lastProbeError: err && err.message ? err.message : 'Caption probe failed',
+      };
+    } finally {
+      session[promiseField] = null;
+    }
+  })();
+
+  await session[promiseField];
+}
+
+async function maybeProbeSessionCaptions(session) {
+  if (!session || session.exited) return;
+
+  const probes = [
+    maybeProbeCaptionTarget(session, 'captions', 'captionProbePromise', session.playlist),
+  ];
+
+  if (SOURCE_CAPTION_PROBE) {
+    probes.push(
+      maybeProbeCaptionTarget(
+        session,
+        'sourceCaptions',
+        'sourceCaptionProbePromise',
+        session.sourceUrl,
+        {
+          timeoutMs: 12_000,
+          probeSize: '16M',
+          analyzeDuration: '16M',
+        }
+      )
+    );
+  }
+
+  await Promise.all(probes);
 }
 
 async function waitForPlaylist(session) {
@@ -269,6 +675,7 @@ async function ensureSession(channel, codec, profile) {
   const session = getOrCreateSession(channel, codec, profile);
   try {
     await waitForPlaylist(session);
+    startWebVttSidecar(session);
   } catch (err) {
     stopSession(channel, codec, profile, 'startup_error');
     throw err;
@@ -290,6 +697,9 @@ function stopSession(channel, codec, profile, reason = 'manual') {
   const session = sessions.get(sessionKey(channel, codec, profile));
   if (!session) return;
   session.stopReason = reason;
+  if (isProcessAlive(session.webvttProcess)) {
+    session.webvttProcess.kill('SIGTERM');
+  }
   session.process.kill('SIGTERM');
 }
 
@@ -325,7 +735,27 @@ function getSessionInfo(channel, codec, profile) {
       bitrate: session.progress.bitrate || null,
       speed: session.progress.speed || null,
     },
+    captions: {
+      ...session.captions,
+      probeInFlight: !!session.captionProbePromise,
+    },
+    sourceCaptions: {
+      ...session.sourceCaptions,
+      probeInFlight: !!session.sourceCaptionProbePromise,
+    },
+    webvtt: {
+      ...session.webvtt,
+      active: isProcessAlive(session.webvttProcess),
+    },
   };
+}
+
+async function getSessionInfoWithCaptions(channel, codec, profile) {
+  const session = sessions.get(sessionKey(channel, codec, profile));
+  if (!session) return null;
+
+  await maybeProbeSessionCaptions(session);
+  return getSessionInfo(channel, codec, profile);
 }
 
 setInterval(() => {
@@ -351,4 +781,5 @@ module.exports = {
   DEFAULT_PROFILE,
   getMetrics,
   getSessionInfo,
+  getSessionInfoWithCaptions,
 };

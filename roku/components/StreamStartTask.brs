@@ -15,16 +15,15 @@ end sub
 sub doStart()
     base = m.top.serverUrl
     chan = m.top.channelNumber
+    codec = normalizeCodec(m.top.codec)
 
     if base = invalid or base = "" or chan = invalid or chan = ""
         m.top.result = { state: "failed", error: "Missing server URL or channel number" }
         return
     end if
 
-    ' Roku always requests the hevc encode - its Video node decodes HEVC
-    ' natively, unlike the browser player's hls.js pipeline (h264 only).
-    startUrl = base + "/stream/" + chan + "/hevc/start"
-    readyUrl = base + "/stream/" + chan + "/hevc/ready"
+    startUrl = base + "/stream/" + chan + "/" + codec + "/start"
+    readyUrl = base + "/stream/" + chan + "/" + codec + "/ready"
 
     ' Step 1: kick off the tuner/transcode. 202 Accepted with no body expected,
     ' but we treat any 2xx as success.
@@ -108,6 +107,13 @@ sub doStart()
         error: "Timed out waiting for the stream to start"
     }
 end sub
+
+function normalizeCodec(codec as dynamic) as string
+    if codec = invalid then return "hevc"
+    value = LCase(codec.ToStr())
+    if value = "h264" then return "h264"
+    return "hevc"
+end function
 
 function classifyFailureReason(errorText as string) as string
     if errorText = invalid then return "unknown"

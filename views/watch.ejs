@@ -10,15 +10,18 @@
 </div>
 
 <div id="player-status" class="text-body-secondary small">Tuning&hellip; usually just a few seconds.</div>
+<div id="captions-status" class="text-body-secondary small">Captions: checking stream...</div>
 
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js?v=<%= assetVersion %>"></script>
 <script>
   (function () {
     var channel = <%- JSON.stringify(channel) %>;
     var forcedProfile = <%- JSON.stringify(qualityProfile) %>;
     var qualityOptions = <%- JSON.stringify(qualityOptions || []) %>;
+    var webvttSidecarEnabled = <%- JSON.stringify(!!webvttSidecarEnabled) %>;
     var video = document.getElementById('player');
     var status = document.getElementById('player-status');
+    var captionsStatus = document.getElementById('captions-status');
     var profile = chooseProfile();
     var streamBase = '/stream/' + encodeURIComponent(channel) + '/h264/' + encodeURIComponent(profile) + '/';
     var src = streamBase + 'stream.m3u8';
@@ -29,6 +32,74 @@
     var heartbeatTimer = null;
 
     function setStatus(text) { status.textContent = text; }
+    function setCaptionsStatus(text) { captionsStatus.textContent = text; }
+
+    function addWebVttTrack(url) {
+      if (!video) return;
+      var existing = video.querySelector('track[data-sidecar="webvtt"]');
+      if (existing) return;
+
+      var track = document.createElement('track');
+      track.kind = 'captions';
+      track.label = 'English CC';
+      track.srclang = 'en';
+      track.src = url;
+      track.setAttribute('data-sidecar', 'webvtt');
+      video.appendChild(track);
+    }
+
+    function tryAttachWebVttTrack(attempt) {
+      if (!webvttSidecarEnabled) {
+        setCaptionsStatus('Captions: sidecar disabled on server.');
+        return;
+      }
+
+      var captionsUrl = streamBase + 'captions.vtt?t=' + Date.now();
+      fetch(captionsUrl, { cache: 'no-store' })
+        .then(function (r) {
+          if (!r.ok) throw new Error('sidecar_not_ready');
+          return r.text();
+        })
+        .then(function (text) {
+          if (!/WEBVTT/.test(text || '')) throw new Error('invalid_sidecar');
+          addWebVttTrack(captionsUrl);
+          setCaptionsStatus('Captions: WebVTT sidecar attached. Use CC/subtitles control to enable when cues are present.');
+          setTimeout(refreshCaptionsStatus, 500);
+        })
+        .catch(function () {
+          if ((attempt || 0) < 8) {
+            setTimeout(function () { tryAttachWebVttTrack((attempt || 0) + 1); }, 1000);
+            return;
+          }
+          setCaptionsStatus('Captions: no caption cues detected for this stream yet.');
+        });
+    }
+
+    function getCaptionTrackCount() {
+      if (!video || !video.textTracks) return 0;
+      var count = 0;
+      for (var i = 0; i < video.textTracks.length; i += 1) {
+        var kind = (video.textTracks[i].kind || '').toLowerCase();
+        if (kind === 'captions' || kind === 'subtitles') count += 1;
+      }
+      return count;
+    }
+
+    function refreshCaptionsStatus() {
+      var tracks = getCaptionTrackCount();
+      if (tracks > 0) {
+        setCaptionsStatus('Captions: track attached. Use player CC/subtitles control to enable when cues are available.');
+      } else {
+        setCaptionsStatus('Captions: no track detected yet.');
+      }
+    }
+
+    function bindCaptionTrackListeners() {
+      if (!video || !video.textTracks || !video.textTracks.addEventListener) return;
+      video.textTracks.addEventListener('addtrack', refreshCaptionsStatus);
+      video.textTracks.addEventListener('removetrack', refreshCaptionsStatus);
+      video.textTracks.addEventListener('change', refreshCaptionsStatus);
+    }
 
     function chooseProfile() {
       if (qualityOptions.indexOf(forcedProfile) !== -1) {
@@ -92,15 +163,36 @@
         });
         hls.loadSource(src);
         hls.attachMedia(video);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () { setStatus('Live'); startHeartbeat(); video.play(); });
+        hls.on(Hls.Events.MANIFEST_PARSED, function () {
+          setStatus('Live');
+          startHeartbeat();
+          video.play();
+          tryAttachWebVttTrack(0);
+          setTimeout(refreshCaptionsStatus, 500);
+        });
+        hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function (event, data) {
+          var tracks = (data && data.subtitleTracks && data.subtitleTracks.length) || 0;
+          if (tracks > 0) {
+            setCaptionsStatus('Captions: ' + tracks + ' HLS subtitle track(s) detected. Use the player CC/subtitles control to enable.');
+          } else {
+            refreshCaptionsStatus();
+          }
+        });
         hls.on(Hls.Events.ERROR, function (event, data) {
           if (data.fatal) setStatus('Stream error: ' + data.details);
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;
-        video.addEventListener('loadedmetadata', function () { setStatus('Live'); startHeartbeat(); video.play(); });
+        video.addEventListener('loadedmetadata', function () {
+          setStatus('Live');
+          startHeartbeat();
+          video.play();
+          tryAttachWebVttTrack(0);
+          setTimeout(refreshCaptionsStatus, 500);
+        });
       } else {
         setStatus('Your browser does not support HLS playback.');
+        setCaptionsStatus('Captions: unavailable (no HLS support in this browser).');
       }
     }
 
@@ -136,6 +228,8 @@
     }
 
     setStatus('Starting stream (' + profile + ' quality)…');
+    bindCaptionTrackListeners();
+    refreshCaptionsStatus();
     fetch(streamBase + 'start', { method: 'POST' })
       .then(function () { pollUntilReady(Date.now(), 0); })
       .catch(function () { setStatus('Could not reach the server to start the stream.'); });

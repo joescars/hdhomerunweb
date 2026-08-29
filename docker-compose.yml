@@ -8,5 +8,8 @@ services:
     environment:
       - HDHOMERUN_HOST=${HDHOMERUN_HOST}
       - HDHOMERUN_PORT=${HDHOMERUN_PORT:-80}
+      - STREAM_DECODE_MODE=${STREAM_DECODE_MODE:-qsv}
+      - WEBVTT_SIDECAR_MODE=${WEBVTT_SIDECAR_MODE:-on}
+      - SOURCE_CAPTION_PROBE=${SOURCE_CAPTION_PROBE:-off}
     devices:
       - /dev/dri:/dev/dri

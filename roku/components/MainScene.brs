@@ -6,6 +6,7 @@ sub init()
     m.top.backgroundColor = "0x0A1428FF"
     m.screenStack = []
     m.serverUrl = readServerUrl()
+    m.streamCodec = readStreamCodec()
 
     showGuide()
 end sub
@@ -32,6 +33,22 @@ function readServerUrl() as string
     return defaultUrl
 end function
 
+function normalizeStreamCodec(codec as dynamic) as string
+    if codec = invalid then return "hevc"
+    text = LCase(codec.ToStr())
+    if text = "h264" then return "h264"
+    return "hevc"
+end function
+
+function readStreamCodec() as string
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return "hevc"
+    if sec.Exists("streamCodec")
+        return normalizeStreamCodec(sec.Read("streamCodec"))
+    end if
+    return "hevc"
+end function
+
 sub writeServerUrl(url as string)
     normalized = normalizeServerUrl(url)
     if normalized = "" then return
@@ -39,6 +56,15 @@ sub writeServerUrl(url as string)
     sec = CreateObject("roRegistrySection", "hdhrweb")
     if sec = invalid then return
     sec.Write("serverUrl", normalized)
+    sec.Flush()
+end sub
+
+sub writeStreamCodec(codec as string)
+    normalized = normalizeStreamCodec(codec)
+
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return
+    sec.Write("streamCodec", normalized)
     sec.Flush()
 end sub
 
@@ -92,11 +118,15 @@ sub onLaunchPlayer(event as object)
 
     if m.serverUrl = invalid or m.serverUrl = "" then m.serverUrl = readServerUrl()
 
+    if m.streamCodec = invalid or m.streamCodec = "" then m.streamCodec = readStreamCodec()
+    codec = normalizeStreamCodec(m.streamCodec)
+
     screen = CreateObject("roSGNode", "PlayerScreen")
     screen.serverUrl = m.serverUrl
     screen.channelNumber = data.channelNumber
     screen.channelName = data.channelName
-    screen.streamPath = data.streamPath
+    screen.codec = codec
+    screen.streamPath = "/stream/" + data.channelNumber.ToStr() + "/" + codec + "/stream.m3u8"
     screen.channels = data.channels
     screen.observeField("closed", "onPlayerClosed")
     pushScreen(screen)
@@ -111,7 +141,9 @@ end sub
 sub onOpenSettings(event as object)
     screen = CreateObject("roSGNode", "SettingsScreen")
     screen.serverUrl = m.serverUrl
+    screen.streamCodec = m.streamCodec
     screen.observeField("saved", "onSettingsSaved")
+    screen.observeField("codecSaved", "onCodecSaved")
     screen.observeField("closed", "onSettingsClosed")
     pushScreen(screen)
 end sub
@@ -133,6 +165,13 @@ end sub
 
 sub onSettingsClosed(event as object)
     popScreen()
+end sub
+
+sub onCodecSaved(event as object)
+    codec = event.getData()
+    if codec = invalid or codec = "" then return
+    m.streamCodec = normalizeStreamCodec(codec)
+    writeStreamCodec(m.streamCodec)
 end sub
 
 ' --- called from main.brs's message loop --------------------------------
