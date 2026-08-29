@@ -68,7 +68,7 @@ Or pass them inline:
 ROKU_IP=192.168.1.50 ROKU_DEV_PASSWORD=hunter2 ./deploy.sh
 ```
 
-The app then appears on the Roku home screen as **HDHomeRun Web Client**.
+The app then appears on the Roku home screen as **LunaTV**.
 
 To build the zip without uploading (e.g. to install by hand through the web UI
 at `http://<roku-ip>`, user `rokudev`):
