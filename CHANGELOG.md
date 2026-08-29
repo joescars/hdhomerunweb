@@ -4,6 +4,37 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: show thumbnail in the Roku live preview box (instead of black while loading)
+
+Follow-up to the live-preview feature - the preview box showed solid black
+for the entire debounce + tuning-handshake window (several seconds) before
+any video appeared, and stayed black on any preview failure.
+
+- `GuideScreen.xml`/`.brs`: new `previewThumbnail` `Poster` node, layered
+  behind `previewVideo` at the same position/size. Updated instantly (no
+  debounce - it's just a field read, not a network request) on every focus
+  change via a new `updatePreviewThumbnail()`, independent of whether live
+  preview is even enabled, so it's the *only* thing shown when the Settings
+  toggle is off.
+- Shows the **currently-airing program's own artwork**, not the channel
+  logo - a new `CurrentImage` field threaded through `findProgramAt()` →
+  `buildGuideRow()` → `patchGuideRowNode()`, sourced from the same
+  per-program `image` URL (`p.ImageURL`) the web guide already displays in
+  its list view (`src/routes/api.js`). No fallback to the channel logo if a
+  program has no artwork of its own - explicitly requested to be the show
+  thumbnail specifically, not a logo substitute.
+- Found and fixed a real bug along the way: `previewVideo` had no explicit
+  `visible` state and defaulted to `true`, so it painted solid black
+  (Roku's `Video` node does this even with no content/not playing - same
+  reason `PlayerScreen.xml`'s video starts `visible="false"`) permanently
+  over the thumbnail regardless of playback state. Now `visible="false"`
+  until `onPreviewStreamResult` actually has a ready stream, and set back
+  to `false` in `stopPreview()`.
+- Verified the image genuinely loads (`loadStatus=ready` via temporary
+  debug logging, since screenshots can't show anything in the video-plane
+  region - the same blind spot established earlier this session for full
+  playback) and confirmed visually on-device.
+
 ### Added: Settings toggle to disable Roku live preview
 
 Follow-up to the live-preview feature below - each preview holds a tuner

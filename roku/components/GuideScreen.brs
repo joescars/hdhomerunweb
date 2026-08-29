@@ -13,6 +13,7 @@ sub init()
     m.thirdTimeLabel = m.top.findNode("thirdTimeLabel")
     m.filterLabel = m.top.findNode("filterLabel")
     m.previewVideo = m.top.findNode("previewVideo")
+    m.previewThumbnail = m.top.findNode("previewThumbnail")
     m.previewLabel = m.top.findNode("previewLabel")
     m.previewDebounceTimer = m.top.findNode("previewDebounceTimer")
 
@@ -136,6 +137,7 @@ sub applyCurrentFilter()
     if focusIndex >= childCount then focusIndex = childCount - 1
     if focusIndex < 0 then focusIndex = 0
     updateFocusedDetails(focusIndex)
+    updatePreviewThumbnail(focusIndex)
 end sub
 
 function getFilteredChannels() as object
@@ -295,7 +297,7 @@ function buildGuideRow(ch as object, serverTime as integer, slotStart as integer
 
     isRecent = isRecentChannel(ch.number)
 
-    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis + "|" + nextProgram.title + "|" + isRecent.ToStr()
+    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis + "|" + nextProgram.title + "|" + isRecent.ToStr() + "|" + current.image
 
     return {
         ChannelNumber: ch.number
@@ -310,6 +312,7 @@ function buildGuideRow(ch as object, serverTime as integer, slotStart as integer
         DetailsTitle: detailsTitle
         Synopsis: current.synopsis
         NextTitle: nextProgram.title
+        CurrentImage: current.image
         RowSignature: rowSignature
     }
 end function
@@ -326,6 +329,7 @@ sub patchGuideRowNode(node as object, row as object)
     node.DetailsTitle = row.DetailsTitle
     node.Synopsis = row.Synopsis
     node.NextTitle = row.NextTitle
+    node.CurrentImage = row.CurrentImage
     node.RowSignature = row.RowSignature
 end sub
 
@@ -342,10 +346,11 @@ function findProgramAt(programs as object, timestamp as integer) as object
                 title: program.title
                 episodeTitle: program.episodeTitle
                 synopsis: program.synopsis
+                image: program.image
             }
         end if
     end for
-    return { title: "", episodeTitle: "", synopsis: "" }
+    return { title: "", episodeTitle: "", synopsis: "", image: "" }
 end function
 
 ' Programs are contiguous (no gaps - see src/routes/api.js), so "next" is
@@ -392,6 +397,7 @@ sub onChannelFocused(event as object)
     idx = event.getData()
     m.lastFocusedIndex = idx
     updateFocusedDetails(idx)
+    updatePreviewThumbnail(idx)
     restartPreviewDebounce()
 end sub
 
@@ -438,6 +444,30 @@ sub updateFocusedDetails(index as integer)
     m.detailSynopsis.text = chNode.Synopsis
 end sub
 
+' Instant (no debounce) - the program image is already fetched as part of
+' the guide data, so this is just a field read, not a network request. Runs
+' regardless of whether live preview is enabled, so browsing always shows
+' *something* identifiable instead of a blank/black box, and is the only
+' thing shown at all when live preview is off.
+sub updatePreviewThumbnail(index as integer)
+    if m.previewThumbnail = invalid then return
+    content = m.guideGrid.content
+    if content = invalid then return
+    chNode = content.getChild(index)
+    if chNode = invalid then return
+
+    ' The currently-airing program's own artwork only (same data already
+    ' used for the web guide - src/routes/api.js's per-program `image`) -
+    ' not the channel logo. Left blank (no fallback) if a program has no
+    ' artwork of its own.
+    if chNode.CurrentImage <> invalid and chNode.CurrentImage <> ""
+        m.previewThumbnail.uri = chNode.CurrentImage
+    else
+        m.previewThumbnail.uri = ""
+    end if
+    m.previewLabel.text = chNode.ChannelName
+end sub
+
 ' --- status overlay ---------------------------------------------------------
 
 sub showStatus(text as string)
@@ -458,8 +488,9 @@ end sub
 ' Debounced (previewDebounceTimer, ~0.9s) so scrolling through rows doesn't
 ' spawn a transcode/tuner session per row - only the row the user actually
 ' pauses on gets previewed. Entirely best-effort: any failure (tuner busy,
-' network, timeout) just leaves the preview box black rather than showing
-' an error, since a background preview should never interrupt browsing.
+' network, timeout) just leaves the channel logo showing (see
+' updatePreviewThumbnail) rather than showing an error, since a background
+' preview should never interrupt browsing.
 
 sub restartPreviewDebounce()
     if m.livePreviewEnabled = false then return
@@ -491,7 +522,6 @@ sub startPreviewForFocusedChannel()
 
     stopPreview()
     m.previewChannelNumber = channelNumber
-    m.previewLabel.text = chNode.ChannelName
 
     task = CreateObject("roSGNode", "StreamStartTask")
     task.serverUrl = m.top.serverUrl
@@ -525,6 +555,10 @@ sub onPreviewStreamResult(event as object)
 
     m.previewVideo.content = content
     m.previewVideo.control = "play"
+    ' Video node paints solid black even with no/not-yet-started content -
+    ' stays hidden (revealing previewThumbnail underneath) until there's
+    ' actually something to show.
+    m.previewVideo.visible = true
 end sub
 
 sub stopPreview()
@@ -533,9 +567,12 @@ sub stopPreview()
         m.previewTask.control = "STOP"
         m.previewTask = invalid
     end if
+    m.previewVideo.visible = false
     m.previewVideo.control = "stop"
     m.previewVideo.content = invalid
-    m.previewLabel.text = ""
+    ' previewThumbnail/previewLabel are intentionally left alone - they're
+    ' driven by focus (updatePreviewThumbnail), not by preview lifecycle, so
+    ' the logo+name stay visible as the fallback/placeholder.
     m.previewChannelNumber = invalid
 end sub
 

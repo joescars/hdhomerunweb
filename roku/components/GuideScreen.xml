@@ -69,9 +69,16 @@
                  debounce once focus settles (see GuideScreen.brs) so
                  scrolling through channels doesn't spam the transcode
                  server/tuner with a request per row. Silent on failure -
-                 a background preview should never interrupt browsing. -->
+                 a background preview should never interrupt browsing.
+                 previewThumbnail (the channel logo, already fetched for
+                 GuideRow) updates instantly on focus change, underneath
+                 previewVideo - visible immediately, while buffering, while
+                 disabled (Settings > Live Preview > Off), and on any
+                 preview failure, since the video only visually covers it
+                 once real frames arrive. -->
             <Rectangle translation="[1600, 2]" width="280" height="157" color="0x000000FF" />
-            <Video id="previewVideo" translation="[1600, 2]" width="280" height="157" />
+            <Poster id="previewThumbnail" translation="[1600, 2]" width="280" height="157" loadDisplayMode="scaleToFit" />
+            <Video id="previewVideo" translation="[1600, 2]" width="280" height="157" visible="false" />
             <Rectangle translation="[1600, 2]" width="280" height="2" color="0x38BDF8FF" />
             <Label id="previewLabel"
                 translation="[1600, 132]"
