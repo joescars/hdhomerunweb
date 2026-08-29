@@ -10,10 +10,19 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# Optional: read deployment settings from roku/.env (gitignored).
+# Optional: read deployment settings from roku/.env (gitignored). .env is
+# meant to provide *defaults* - an explicit inline override (e.g.
+# `ROKU_IP=... ./deploy.sh`, as documented above) must win over it, so
+# preserve anything already set in the environment before sourcing.
 if [[ -f .env ]]; then
+  _prior_roku_ip="${ROKU_IP:-}"
+  _prior_roku_password="${ROKU_DEV_PASSWORD:-}"
+  _prior_web_url="${HDHOMERUN_WEB_URL:-}"
   # shellcheck disable=SC1091
   source .env
+  [[ -n "$_prior_roku_ip" ]] && ROKU_IP="$_prior_roku_ip"
+  [[ -n "$_prior_roku_password" ]] && ROKU_DEV_PASSWORD="$_prior_roku_password"
+  [[ -n "$_prior_web_url" ]] && HDHOMERUN_WEB_URL="$_prior_web_url"
 fi
 
 ZIP_NAME="roku-app.zip"
