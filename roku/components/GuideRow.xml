@@ -10,6 +10,7 @@
     <children>
         <Rectangle id="background" width="1920" height="60" color="0x101820FF" />
         <Rectangle id="channelBackground" width="300" height="60" color="0x142238FF" />
+        <Rectangle id="recentAccent" translation="[0, 0]" width="4" height="60" color="0x38BDF8FF" visible="false" />
         <Rectangle translation="[300, 0]" width="2" height="60" color="0x334155FF" />
         <Rectangle translation="[780, 0]" width="2" height="60" color="0x334155FF" />
         <Rectangle translation="[1260, 0]" width="2" height="60" color="0x334155FF" />

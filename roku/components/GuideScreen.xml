@@ -3,6 +3,11 @@
     <interface>
         <!-- in -->
         <field id="serverUrl" type="string" />
+        <!-- in: most-recent-first array of channel-number strings, from MainScene's registry-backed tracking -->
+        <field id="recentChannels" type="array" onChange="onRecentChannelsChange" />
+        <!-- in: Settings toggle - each preview holds a tuner while it plays,
+             so users with few tuners can turn this off -->
+        <field id="livePreviewEnabled" type="boolean" onChange="onLivePreviewEnabledChange" />
         <!-- out: { channelNumber, channelName, streamPath } - fires when the user selects a channel/program -->
         <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
         <!-- out: fires when the user presses the Options remote button -->
@@ -21,7 +26,7 @@
             <Label id="firstTimeLabel" translation="[324, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
             <Label id="secondTimeLabel" translation="[804, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
             <Label id="thirdTimeLabel" translation="[1284, 0]" width="456" height="50" font="font:SmallBoldSystemFont" vertAlign="center" />
-            <Label id="filterLabel" translation="[1710, 0]" width="196" height="50" font="font:SmallSystemFont" horizAlign="right" vertAlign="center" color="0xBFD2E6FF" />
+            <Label id="filterLabel" translation="[1440, 0]" width="466" height="50" font="font:SmallSystemFont" horizAlign="right" vertAlign="center" color="0xBFD2E6FF" />
         </Group>
 
         <MarkupGrid id="guideGrid"
@@ -48,27 +53,38 @@
                 color="0x38BDF8FF" />
             <Label id="detailTitle"
                 translation="[28, 14]"
-                width="1864"
+                width="1550"
                 height="38"
                 font="font:SmallSystemFont"
                 color="0xFFFFFFFF" />
             <Label id="detailSynopsis"
                 translation="[28, 54]"
-                width="1864"
-                height="72"
+                width="1550"
+                height="96"
                 font="font:SmallSystemFont"
                 wrap="true"
                 color="0xCCCCCCFF" />
-            <Label id="legendLabel"
-                translation="[1300, 130]"
-                width="592"
-                height="28"
-                font="font:SmallSystemFont"
-                horizAlign="right"
+
+            <!-- Live preview of the currently-focused channel. Tuned after a
+                 debounce once focus settles (see GuideScreen.brs) so
+                 scrolling through channels doesn't spam the transcode
+                 server/tuner with a request per row. Silent on failure -
+                 a background preview should never interrupt browsing. -->
+            <Rectangle translation="[1600, 2]" width="280" height="157" color="0x000000FF" />
+            <Video id="previewVideo" translation="[1600, 2]" width="280" height="157" />
+            <Rectangle translation="[1600, 2]" width="280" height="2" color="0x38BDF8FF" />
+            <Label id="previewLabel"
+                translation="[1600, 132]"
+                width="280"
+                height="26"
+                font="font:SmallBoldSystemFont"
+                horizAlign="center"
                 vertAlign="center"
-                color="0x9CB0C4FF"
-                text="LEFT/RIGHT: Filter    *: Options" />
+                color="0xFFFFFFFF"
+                text="" />
         </Group>
+
+        <Timer id="previewDebounceTimer" duration="0.9" repeat="false" />
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->
         <Rectangle id="statusBg"

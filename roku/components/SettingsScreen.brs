@@ -8,6 +8,7 @@
 sub init()
     m.urlLabel = m.top.findNode("urlLabel")
     m.codecLabel = m.top.findNode("codecLabel")
+    m.livePreviewLabel = m.top.findNode("livePreviewLabel")
     m.statusLabel = m.top.findNode("statusLabel")
     m.checkTask = invalid
     setStatus("Ready")
@@ -26,6 +27,7 @@ sub onScreenFocus()
     m.top.streamCodec = normalizeCodec(m.top.streamCodec)
     updateUrlLabel()
     updateCodecLabel()
+    updateLivePreviewLabel()
 end sub
 
 sub updateUrlLabel()
@@ -59,6 +61,32 @@ sub saveStreamCodec(codec as string)
     end if
 end sub
 
+sub updateLivePreviewLabel()
+    if m.livePreviewLabel = invalid then return
+    ' Default true when unset - only an explicit "false" turns it off.
+    if m.top.livePreviewEnabled <> false
+        m.livePreviewLabel.text = "On (shows a small live preview of the focused channel)"
+    else
+        m.livePreviewLabel.text = "Off (browsing the guide won't tune a preview stream)"
+    end if
+end sub
+
+sub toggleLivePreview()
+    ' Default true when unset - only an explicit "false" turns it off.
+    currentlyOn = (m.top.livePreviewEnabled <> false)
+    newValue = not currentlyOn
+
+    m.top.livePreviewEnabled = newValue
+    updateLivePreviewLabel()
+    m.top.livePreviewSaved = newValue
+
+    if newValue
+        setStatus("Live preview: On")
+    else
+        setStatus("Live preview: Off")
+    end if
+end sub
+
 sub toggleCodec()
     current = normalizeCodec(m.top.streamCodec)
     nextCodec = "h264"
@@ -89,6 +117,9 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if press
         if key = "left" or key = "right"
             toggleCodec()
+            return true
+        else if key = "up" or key = "down"
+            toggleLivePreview()
             return true
         else if key = "OK"
             setStatus("Editing URL…")
