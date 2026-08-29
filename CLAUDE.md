@@ -79,19 +79,26 @@ Things that will bite:
   returns an ffmpeg stderr tail up to 4000 chars. `PlayerScreen.brs` logs it
   in full via `print` (visible on `telnet <roku-ip> 8085`) and shows a
   truncated line on TV.
-- **Transcoding target is codec-per-client, not MPEG-2 passthrough.**
-  `src/stream.js` always QSV-decodes the tuner's raw MPEG2/AC3 (raw MPEG-TS
-  isn't a supported Roku stream format, and browsers can't decode MPEG2
-  either), then re-encodes with `h264_qsv` or `hevc_qsv` depending on a
-  `:codec` path segment (`/stream/<ch>/h264/...` vs `/stream/<ch>/hevc/...`,
-  validated against `CODEC_RE` in `src/routes/watch.js`). The browser player
-  (`views/watch.ejs`) always requests `h264` — hls.js's MPEG-TS demuxer parses
-  H.264 NAL units only and throws `fragParsingError` on HEVC. The Roku client
-  requests `hevc` (`StreamStartTask.brs`, and `streamPath` in
-  `src/routes/api.js`) since its Video node decodes HEVC natively and gets a
-  bitrate/quality win from it. Sessions are keyed by `channel:codec` in
-  `src/stream.js`, so the same channel can be tuned by both clients at once
-  without one clobbering the other's encode.
+- **Transcoding target is codec-per-client, normally not MPEG-2 passthrough.**
+  `src/stream.js` normally QSV-decodes the tuner's raw MPEG2/AC3 (browsers
+  can't decode MPEG2 at all), then re-encodes with `h264_qsv` or `hevc_qsv`
+  depending on a `:codec` path segment (`/stream/<ch>/h264/...` vs
+  `/stream/<ch>/hevc/...`, validated against `CODEC_RE` in
+  `src/routes/watch.js`). The browser player (`views/watch.ejs`) always
+  requests `h264` — hls.js's MPEG-TS demuxer parses H.264 NAL units only and
+  throws `fragParsingError` on HEVC. The Roku client defaults to `h264`
+  too, since `hevc_qsv` has no closed-caption support at all (see
+  `docs/closed-captioning-options.md`) — users can switch to `hevc` for
+  better bitrate/quality in Settings if they don't need captions. There's
+  also a third Roku-only `direct` codec value: raw MPEG2/AC3 rewrapped into
+  HLS unchanged (`-c copy`, no QSV decode/encode), an experimental
+  Settings-only opt-in for users whose Roku hardware can decode MPEG2 — it
+  worked end-to-end (video, audio, and captions) on the one device this was
+  tested against, but MPEG2 decode support is known to vary across Roku
+  hardware generations, hence opt-in rather than default. Sessions are
+  keyed by `channel:codec:profile` in `src/stream.js`, so the same channel
+  can be tuned by multiple clients/codecs at once without one clobbering
+  another's encode.
 
 ## Screenshots
 

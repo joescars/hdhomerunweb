@@ -10,16 +10,22 @@ sub init()
     m.codecLabel = m.top.findNode("codecLabel")
     m.statusLabel = m.top.findNode("statusLabel")
     m.checkTask = invalid
-    m.top.streamCodec = normalizeCodec(m.top.streamCodec)
-    updateUrlLabel()
-    updateCodecLabel()
     setStatus("Ready")
-    onScreenFocus()
 end sub
 
 ' Public - callable from MainScene when this screen becomes top-of-stack.
+'
+' NOTE: label refresh lives here, not in init(). init() runs the instant
+' CreateObject("roSGNode", "SettingsScreen") is called in MainScene, which is
+' BEFORE MainScene's onOpenSettings assigns screen.serverUrl/streamCodec on
+' the following lines - reading those fields in init() would show stale
+' (unset) values the first time the screen opens. onScreenFocus() is called
+' afterward, once those fields are actually populated.
 sub onScreenFocus()
     m.top.setFocus(true)
+    m.top.streamCodec = normalizeCodec(m.top.streamCodec)
+    updateUrlLabel()
+    updateCodecLabel()
 end sub
 
 sub updateUrlLabel()
@@ -30,6 +36,7 @@ function normalizeCodec(codec as dynamic) as string
     if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
     if value = "hevc" then return "hevc"
+    if value = "direct" then return "direct"
     return "h264"
 end function
 
@@ -38,8 +45,10 @@ sub updateCodecLabel()
     codec = normalizeCodec(m.top.streamCodec)
     if codec = "h264"
         m.codecLabel.text = "H.264 (better compatibility, closed captions supported)"
-    else
+    else if codec = "hevc"
         m.codecLabel.text = "HEVC / H.265 (better efficiency, closed captions unavailable)"
+    else
+        m.codecLabel.text = "Direct / no transcoding (experimental - may not play at all)"
     end if
 end sub
 
@@ -54,6 +63,8 @@ sub toggleCodec()
     current = normalizeCodec(m.top.streamCodec)
     nextCodec = "h264"
     if current = "h264" then nextCodec = "hevc"
+    if current = "hevc" then nextCodec = "direct"
+    ' current = "direct" falls through to the "h264" default above, completing the cycle.
 
     m.top.streamCodec = nextCodec
     updateCodecLabel()
@@ -62,8 +73,10 @@ sub toggleCodec()
 
     if nextCodec = "h264"
         setStatus("Codec saved: H.264")
-    else
+    else if nextCodec = "hevc"
         setStatus("Codec saved: HEVC")
+    else
+        setStatus("Codec saved: Direct (no transcoding, experimental)")
     end if
 end sub
 

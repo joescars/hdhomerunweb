@@ -8,7 +8,7 @@ const hdhr = require('../hdhomerun');
 const router = express.Router();
 
 const CHANNEL_RE = /^[0-9]+(\.[0-9]+)?$/;
-const CODEC_RE = /^(h264|hevc)$/;
+const CODEC_RE = /^(h264|hevc|direct)$/;
 const FILE_RE = /^(stream\.m3u8|segment[0-9]+\.ts|captions\.vtt)$/;
 const PROFILE_RE = /^(low|medium|high)$/;
 

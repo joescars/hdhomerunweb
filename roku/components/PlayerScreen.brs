@@ -43,6 +43,7 @@ function normalizeCodec(codec as dynamic) as string
     if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
     if value = "hevc" then return "hevc"
+    if value = "direct" then return "direct"
     return "h264"
 end function
 
@@ -207,11 +208,13 @@ sub playStream()
     content.live = true
 
     ' Unlike a TV or browser, Roku's Video node does not auto-detect
-    ' embedded EIA-608 captions from H.264 SEI data - it only looks for a
-    ' caption track if SubtitleTracks explicitly names one. h264_qsv is the
-    ' only codec path that embeds caption data at all (see
-    ' docs/closed-captioning-options.md); hevc has nothing to point at.
-    if normalizeCodec(m.top.codec) = "h264"
+    ' embedded EIA-608 captions from SEI/user_data - it only looks for a
+    ' caption track if SubtitleTracks explicitly names one. h264 (a53cc) and
+    ' direct (raw MPEG2 user_data, byte-for-byte from the source) are the
+    ' only codec paths that can carry caption data at all - hevc_qsv has no
+    ' equivalent (see docs/closed-captioning-options.md).
+    codec = normalizeCodec(m.top.codec)
+    if codec = "h264" or codec = "direct"
         content.SubtitleTracks = [{
             TrackName: "eia608/1"
             Language: "eng"
@@ -232,6 +235,9 @@ sub onVideoStateChange(event as object)
             print "[PlayerScreen] playback error: "; m.video.errorMsg
         end if
         showOverlay(friendlyError("Playback error", m.video.errorMsg), false)
+        if normalizeCodec(m.top.codec) = "direct" and m.hintLabel <> invalid
+            m.hintLabel.text = "Direct mode may be unsupported - try H.264/HEVC in Settings"
+        end if
     else if state = "finished"
         showOverlay("Stream ended", false)
     end if

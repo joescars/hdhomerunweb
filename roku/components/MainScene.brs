@@ -38,10 +38,18 @@ end function
 ' docs/closed-captioning-options.md). Default to h264 so captions work out
 ' of the box; users who don't need captions and want HEVC's bitrate/quality
 ' edge can switch in Settings.
+'
+' "direct" is a third value alongside h264/hevc, not a separate setting: it
+' means "skip transcoding entirely, remux the tuner's raw MPEG2/AC3 into
+' HLS unchanged" (see DIRECT_CODEC in src/stream.js). Experimental - CLAUDE.md
+' already notes raw MPEG-TS isn't a generally supported Roku stream format,
+' so this exists for the user to try and revert, not as a guaranteed-working
+' path.
 function normalizeStreamCodec(codec as dynamic) as string
     if codec = invalid then return "h264"
     text = LCase(codec.ToStr())
     if text = "hevc" then return "hevc"
+    if text = "direct" then return "direct"
     return "h264"
 end function
 

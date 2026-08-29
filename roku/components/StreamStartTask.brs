@@ -112,6 +112,7 @@ function normalizeCodec(codec as dynamic) as string
     if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
     if value = "hevc" then return "hevc"
+    if value = "direct" then return "direct"
     return "h264"
 end function
 

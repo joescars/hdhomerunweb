@@ -78,7 +78,7 @@
                 width="1288"
                 height="34"
                 font="font:SmallBoldSystemFont"
-                text="Preferred Stream Codec"
+                text="Streaming Mode"
                 color="0xE2E8F0FF" />
 
             <Rectangle
@@ -102,31 +102,31 @@
             <Label
                 translation="[56, 554]"
                 width="1288"
-                height="40"
+                height="66"
                 font="font:SmallSystemFont"
                 wrap="true"
-                text="Left/Right changes codec. Use H.264 if you need closed captions support."
+                text="Left/Right cycles H.264 / HEVC / Direct. Direct skips server transcoding entirely and is experimental - it may not play at all on this device."
                 color="0x9CB0C4FF" />
 
             <Label
                 id="statusLabel"
-                translation="[56, 620]"
+                translation="[56, 636]"
                 width="1288"
                 height="44"
                 font="font:SmallSystemFont"
                 color="0x38BDF8FF" />
 
             <Rectangle
-                translation="[56, 702]"
+                translation="[56, 718]"
                 width="1288"
                 height="62"
                 color="0x0F1D30FF" />
             <Label
-                translation="[84, 720]"
+                translation="[84, 736]"
                 width="1228"
                 height="28"
                 font="font:SmallSystemFont"
-                text="OK: Edit URL   Left/Right: Codec   Back: Return to Guide"
+                text="OK: Edit URL   Left/Right: Mode   Back: Return to Guide"
                 color="0xB6C7D8FF" />
         </Group>
     </children>

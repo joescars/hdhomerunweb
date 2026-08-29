@@ -4,6 +4,87 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Fixed: Roku Settings screen showed stale values on first open
+
+`roku/components/SettingsScreen.brs`'s `init()` called `updateUrlLabel()`/
+`updateCodecLabel()` immediately, but `init()` runs the instant
+`CreateObject("roSGNode", "SettingsScreen")` executes in
+`MainScene.brs`'s `onOpenSettings` — *before* the very next lines in that
+same function assign `screen.serverUrl`/`screen.streamCodec`. So the first
+time Settings opened after an app launch, both labels rendered from unset
+field values instead of the actual persisted registry values, only
+becoming correct after the user pressed Left/Right once (which calls
+`updateCodecLabel()` again, this time with fields actually populated).
+
+- Moved the label-refresh calls (and `m.top.streamCodec =
+  normalizeCodec(...)`) out of `init()` and into `onScreenFocus()`, which
+  `MainScene.brs`'s `pushScreen()` explicitly calls *after* the caller has
+  set the screen's fields — this is exactly what that function's own
+  doc comment already says it's for ("callable from MainScene when this
+  screen becomes top-of-stack"), it just wasn't being used for this.
+- Bumped Roku `build_version` to 38. Initially verified via a fresh app
+  launch → immediate Settings open → screenshot, showing correct Server URL
+  and Streaming Mode values on first render. A later re-check produced a
+  confusing mismatch (Settings briefly showed a stale codec again), but
+  that session had remote-control input arriving from two sources at once
+  (automated ECP keypresses plus the physical remote) on the same live
+  device, which is enough on its own to explain inconsistent screen state
+  without implicating this fix - not conclusively re-confirmed clean. If
+  this resurfaces, retest with only one input source active at a time.
+
+### Added: Roku "Direct" streaming mode (experimental, no server transcoding)
+
+New third option in Roku's Settings → Streaming Mode, alongside H.264/HEVC:
+`Direct / no transcoding`, which remuxes the tuner's raw MPEG2/AC3 straight
+into HLS segments (`-c copy`, no QSV decode or encode at all) instead of
+transcoding. CLAUDE.md previously stated raw MPEG-TS isn't a supported Roku
+stream format - that's still true for the *raw, unsegmented* transport
+stream, but it turns out wrapping the same untouched MPEG2/AC3 bytes into
+HLS segments (which Roku already knows how to pull apart) **does** play on
+this hardware. Confirmed working end-to-end on a real device, video +
+audio + captions, using the same remote-debugging technique documented in
+the entry below (ECP keypresses, telnet console, server-side stream stats).
+
+- `src/stream.js`: added a `DIRECT_CODEC = 'direct'` path in `spawnFfmpeg()`
+  that builds a minimal `-c copy` ffmpeg invocation (no `-hwaccel`, no
+  decode/encode args, no bitrate targets - there's no encoder to target)
+  instead of the QSV transcode path. Session/stats metadata reports
+  `decodeMode: 'none'`, `videoDecoder`/`videoEncoder`/`audioEncoder: 'copy'`.
+  Reuses the exact same session lifecycle (idle timeout, heartbeat, tuner
+  busy detection, HLS serving) as the transcoded paths - `codec` was already
+  a first-class dimension of the session key and URL path
+  (`/stream/:channel/:codec/:profile/...`), so `direct` slots in without
+  touching that plumbing.
+- `src/routes/watch.js`: `CODEC_RE` now allows `direct`.
+- Roku: `direct` is a third value alongside `h264`/`hevc` in the *same*
+  codec preference (not a separate setting) - `normalizeCodec`/
+  `normalizeStreamCodec` in `MainScene.brs`, `SettingsScreen.brs`,
+  `PlayerScreen.brs`, and `StreamStartTask.brs` all now accept it, and
+  `SettingsScreen.brs`'s `toggleCodec()` cycles all three
+  (H.264 → HEVC → Direct → H.264 …) rather than just two. This reuses 100%
+  of the existing stream-start handshake and Video node setup - Roku's
+  `content.streamFormat` stays `"hls"` either way, since direct mode still
+  delivers HLS, just with unmodified segment payloads.
+- `roku/components/PlayerScreen.brs`: the `eia608/1` `SubtitleTracks` fix
+  from the entry below is now applied for `direct` as well as `h264` -
+  since stream copy touches no bytes, any embedded CC in the source MPEG2
+  user_data survives unchanged, and it turns out Roku's Video node can
+  extract it the same way it does from h264 SEI. Confirmed on-device:
+  captions render in Direct mode too.
+- `roku/components/PlayerScreen.brs`: added a Direct-mode-specific hint
+  ("Direct mode may be unsupported - try H.264/HEVC in Settings") to the
+  playback-error overlay, since a decode failure is the most likely failure
+  mode for this path on hardware that doesn't support it (the stream itself
+  will start fine either way, since ffmpeg is just remuxing).
+- Bumped Roku `build_version` to 37 (36 shipped the codec-cycle/settings UI,
+  37 added captions for direct mode).
+
+Caveat: this was tested on one Roku device/model. MPEG2 decode support is
+known to vary across Roku hardware generations (the CLAUDE.md note this
+entry partially revises was itself based on prior testing), so "works here"
+is not "works on all Roku models" - the whole point of making this an
+easily-revertible Settings toggle rather than a default.
+
 ### Fixed: Roku Video node now actually renders embedded captions
 
 Follow-up to the codec-default fix below. Even after Roku was defaulted to

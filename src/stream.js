@@ -58,6 +58,16 @@ const CODECS = {
   hevc: 'hevc_qsv',
 };
 
+// "direct" is not a real encoder - it means "remux only, -c copy, no QSV
+// decode/encode at all". Experimental opt-in for Roku (see Settings): the
+// tuner's raw MPEG2/AC3 gets rewrapped into HLS segments unchanged instead
+// of transcoded. Much cheaper than a full transcode, but whether Roku's
+// Video node can actually decode raw MPEG2/AC3 pulled through HLS is
+// untested/device-dependent - CLAUDE.md already notes raw MPEG-TS isn't a
+// generally supported Roku stream format, which is exactly what this mode
+// is meant to let a user test and revert if it fails.
+const DIRECT_CODEC = 'direct';
+
 // Phase 1 caption support: keep the existing hardware transcode path and
 // explicitly request embedded A/53 captions where the encoder supports it.
 //
@@ -355,9 +365,7 @@ function channelDir(channel, codec, profile) {
 
 function spawnFfmpeg(channel, codec, profile) {
   const normalizedProfile = normalizeProfile(profile);
-  const profileConfig = QUALITY_PROFILES[normalizedProfile];
-  const captionConfig = getCaptionConfig(codec);
-  const decodeConfig = getDecodeConfig();
+  const isDirect = codec === DIRECT_CODEC;
   const dir = channelDir(channel, codec, normalizedProfile);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
@@ -365,30 +373,89 @@ function spawnFfmpeg(channel, codec, profile) {
   const sourceUrl = `http://${hdhr.HOST}:5004/auto/v${channel}`;
   const playlist = path.join(dir, 'stream.m3u8');
 
-  const args = [
-    '-hide_banner', '-loglevel', 'warning',
-    '-probesize', '500k', '-analyzeduration', '1000000',
-    ...decodeConfig.inputArgs,
-    '-i', sourceUrl,
-    '-map', '0:v:0', '-map', '0:a:0',
-    ...decodeConfig.preEncodeArgs,
-    '-c:v', CODECS[codec],
-    ...captionConfig.ffmpegArgs,
-    '-look_ahead', '0', '-forced_idr', '1',
-    '-b:v', profileConfig.videoBitrate,
-    '-maxrate', profileConfig.maxrate,
-    '-bufsize', profileConfig.bufsize,
-    '-g', '30', '-force_key_frames', 'expr:eq(n,0)+gte(t,n_forced*1)',
-    '-c:a', 'aac', '-b:a', profileConfig.audioBitrate, '-ac', '2',
-    '-f', 'hls',
-    '-hls_time', '1',
-    '-hls_list_size', '6',
-    '-hls_flags', 'delete_segments+independent_segments+omit_endlist',
-    '-hls_segment_filename', path.join(dir, 'segment%d.ts'),
-    '-progress', 'pipe:2',
-    '-nostats',
-    playlist,
-  ];
+  let args;
+  let ffmpegMeta;
+
+  if (isDirect) {
+    args = [
+      '-hide_banner', '-loglevel', 'warning',
+      '-probesize', '500k', '-analyzeduration', '1000000',
+      '-i', sourceUrl,
+      '-map', '0:v:0', '-map', '0:a:0',
+      '-c', 'copy',
+      '-f', 'hls',
+      '-hls_time', '1',
+      '-hls_list_size', '6',
+      '-hls_flags', 'delete_segments+independent_segments+omit_endlist',
+      '-hls_segment_filename', path.join(dir, 'segment%d.ts'),
+      '-progress', 'pipe:2',
+      '-nostats',
+      playlist,
+    ];
+    ffmpegMeta = {
+      decodeMode: 'none',
+      videoDecoder: 'copy',
+      videoEncoder: 'copy',
+      audioEncoder: 'copy',
+      captionMode: 'passthrough',
+      // Unlike -a53cc (which tells an encoder to inject CC side-data),
+      // stream copy touches no bytes at all - any embedded CC in the
+      // source MPEG2 user_data rides along unchanged. Whether Roku's Video
+      // node extracts it from a copied MPEG2/AC3 stream is untested.
+      captionActive: null,
+      captionStrategy: 'raw_bitstream_copy_untested',
+      hlsTimeSeconds: 1,
+      hlsListSize: 6,
+      targetVideoBitrate: 'source (untranscoded)',
+      maxrate: 'n/a',
+      bufsize: 'n/a',
+      targetAudioBitrate: 'source (untranscoded)',
+    };
+  } else {
+    const profileConfig = QUALITY_PROFILES[normalizedProfile];
+    const captionConfig = getCaptionConfig(codec);
+    const decodeConfig = getDecodeConfig();
+
+    args = [
+      '-hide_banner', '-loglevel', 'warning',
+      '-probesize', '500k', '-analyzeduration', '1000000',
+      ...decodeConfig.inputArgs,
+      '-i', sourceUrl,
+      '-map', '0:v:0', '-map', '0:a:0',
+      ...decodeConfig.preEncodeArgs,
+      '-c:v', CODECS[codec],
+      ...captionConfig.ffmpegArgs,
+      '-look_ahead', '0', '-forced_idr', '1',
+      '-b:v', profileConfig.videoBitrate,
+      '-maxrate', profileConfig.maxrate,
+      '-bufsize', profileConfig.bufsize,
+      '-g', '30', '-force_key_frames', 'expr:eq(n,0)+gte(t,n_forced*1)',
+      '-c:a', 'aac', '-b:a', profileConfig.audioBitrate, '-ac', '2',
+      '-f', 'hls',
+      '-hls_time', '1',
+      '-hls_list_size', '6',
+      '-hls_flags', 'delete_segments+independent_segments+omit_endlist',
+      '-hls_segment_filename', path.join(dir, 'segment%d.ts'),
+      '-progress', 'pipe:2',
+      '-nostats',
+      playlist,
+    ];
+    ffmpegMeta = {
+      decodeMode: STREAM_DECODE_MODE,
+      videoDecoder: decodeConfig.decoder,
+      videoEncoder: CODECS[codec],
+      audioEncoder: 'aac',
+      captionMode: CAPTION_MODE,
+      captionActive: captionConfig.active,
+      captionStrategy: captionConfig.strategy,
+      hlsTimeSeconds: 1,
+      hlsListSize: 6,
+      targetVideoBitrate: profileConfig.videoBitrate,
+      maxrate: profileConfig.maxrate,
+      bufsize: profileConfig.bufsize,
+      targetAudioBitrate: profileConfig.audioBitrate,
+    };
+  }
 
   const proc = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
   let stderrTail = '';
@@ -407,21 +474,7 @@ function spawnFfmpeg(channel, codec, profile) {
     lastAccess: Date.now(),
     lastHeartbeat: null,
     stopReason: null,
-    ffmpeg: {
-      decodeMode: STREAM_DECODE_MODE,
-      videoDecoder: decodeConfig.decoder,
-      videoEncoder: CODECS[codec],
-      audioEncoder: 'aac',
-      captionMode: CAPTION_MODE,
-      captionActive: captionConfig.active,
-      captionStrategy: captionConfig.strategy,
-      hlsTimeSeconds: 1,
-      hlsListSize: 6,
-      targetVideoBitrate: profileConfig.videoBitrate,
-      maxrate: profileConfig.maxrate,
-      bufsize: profileConfig.bufsize,
-      targetAudioBitrate: profileConfig.audioBitrate,
-    },
+    ffmpeg: ffmpegMeta,
     progress: {
       frame: null,
       fps: null,
@@ -490,7 +543,7 @@ function spawnFfmpeg(channel, codec, profile) {
   }
 
   console.info(
-    `[stream] session start channel=${channel} codec=${codec} profile=${normalizedProfile} captions=${captionConfig.strategy}`
+    `[stream] session start channel=${channel} codec=${codec} profile=${normalizedProfile} captions=${ffmpegMeta.captionStrategy}`
   );
 
   metrics.sessionsStarted += 1;
