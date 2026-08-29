@@ -5,6 +5,7 @@
         <field id="serverUrl" type="string" />
         <field id="channelNumber" type="string" />
         <field id="channelName" type="string" />
+        <field id="codec" type="string" />
         <field id="streamPath" type="string" />
         <!-- in: ordered list of visible channels for rewind/forward surfing -->
         <field id="channels" type="array" />

@@ -60,6 +60,9 @@ cp .env.example .env
 | `HDHOMERUN_HOST`  | —                | **Use your device's LAN IP, not its `.local` mDNS name.** Containers on the default Docker bridge network can't resolve mDNS names. |
 | `HDHOMERUN_PORT`  | `80`             | HDHomeRun's HTTP port.                                                |
 | `PORT`            | `8080`           | Port the web app listens on inside the container.                    |
+| `STREAM_DECODE_MODE` | `qsv`         | Decode mode for live transcode input: `qsv` (default) or `sw` (software decode + hardware encode). Useful for CC A/B testing. |
+| `WEBVTT_SIDECAR_MODE` | `on`         | Enables experimental WebVTT sidecar extraction for browser captions. Set `off` to disable sidecar track generation. |
+| `SOURCE_CAPTION_PROBE` | `off`       | Enables raw-input ffprobe caption probing in diagnostics. Keep `off` unless actively debugging caption ingest. |
 
 You can find your device's current IP via its own web UI, your router's DHCP client list, or `avahi-resolve -n hdhomerun.local` on a machine with mDNS support. A DHCP reservation for the device is recommended so the IP doesn't change.
 
@@ -72,6 +75,17 @@ If you hit issues (stream never starts, or `docker logs hdhomerun-web` shows VAA
 - Newer Intel iGPUs (e.g. N100/N150 "Alder Lake-N"/"Twin Lake") aren't recognized by the media driver version shipped in Debian's stable repos — VAAPI init fails outright. This is why the image installs [`jellyfin-ffmpeg`](https://github.com/jellyfin/jellyfin-ffmpeg) instead of stock `ffmpeg`: it bundles its own current Intel media driver rather than relying on the OS package.
 - You can sanity-check hardware acceleration directly: `docker exec hdhomerun-web ffmpeg -hwaccel qsv -hwaccel_output_format qsv -c:v mpeg2_qsv -i "http://<device-ip>:5004/auto/v<channel>" -c:v hevc_qsv -f null -` should report `va_openDriver() returns 0` and start encoding frames.
 - No Intel GPU (or a system that doesn't support QSV) means live playback won't work; everything else in the app (guide, lineup, scan, status) is unaffected.
+
+### Closed captions (browser)
+
+Browser CC currently uses an experimental WebVTT sidecar path generated per
+active stream session.
+
+- Keep `WEBVTT_SIDECAR_MODE=on` to expose a browser caption track.
+- If captions are not appearing, test with `STREAM_DECODE_MODE=sw` for
+  comparison while keeping hardware encode enabled.
+- Use `SOURCE_CAPTION_PROBE=on` only when you need raw input-vs-output caption
+  diagnostics; it is intentionally off by default to reduce noise.
 
 ## Local development (without Docker)
 

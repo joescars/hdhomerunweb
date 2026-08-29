@@ -4,6 +4,7 @@
         <!-- callable from main.brs's message loop -->
         <function name="onSystemResumeSignal" />
         <function name="writeServerUrl" />
+        <function name="writeStreamCodec" />
     </interface>
     <script type="text/brightscript" uri="DeployConfig.brs" />
     <script type="text/brightscript" uri="MainScene.brs" />

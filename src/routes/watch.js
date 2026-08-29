@@ -9,7 +9,7 @@ const router = express.Router();
 
 const CHANNEL_RE = /^[0-9]+(\.[0-9]+)?$/;
 const CODEC_RE = /^(h264|hevc)$/;
-const FILE_RE = /^(stream\.m3u8|segment[0-9]+\.ts)$/;
+const FILE_RE = /^(stream\.m3u8|segment[0-9]+\.ts|captions\.vtt)$/;
 const PROFILE_RE = /^(low|medium|high)$/;
 
 function parseStreamRequest(req, includeFile = false) {
@@ -31,6 +31,8 @@ function parseStreamRequest(req, includeFile = false) {
 }
 
 router.get('/watch/:channel', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+
   const { channel } = req.params;
   if (!CHANNEL_RE.test(channel)) return res.status(400).send('Invalid channel');
 
@@ -53,6 +55,7 @@ router.get('/watch/:channel', async (req, res) => {
     channelName,
     qualityProfile,
     qualityOptions: stream.STREAM_PROFILES,
+    webvttSidecarEnabled: String(process.env.WEBVTT_SIDECAR_MODE || 'on').toLowerCase() !== 'off',
   });
 });
 
@@ -93,7 +96,9 @@ async function streamFile(req, res) {
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader(
       'Content-Type',
-      parsed.file.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t'
+      parsed.file.endsWith('.m3u8')
+        ? 'application/vnd.apple.mpegurl'
+        : (parsed.file.endsWith('.vtt') ? 'text/vtt; charset=utf-8' : 'video/mp2t')
     );
     fs.createReadStream(filePath).pipe(res);
   } catch (err) {
@@ -109,7 +114,7 @@ async function streamStats(req, res) {
   const parsed = parseStreamRequest(req);
   if (!parsed) return res.status(400).send('Invalid request');
 
-  const session = stream.getSessionInfo(parsed.channel, parsed.codec, parsed.profile);
+  const session = await stream.getSessionInfoWithCaptions(parsed.channel, parsed.codec, parsed.profile);
   if (!session) return res.status(404).json({ error: 'No active session for that stream' });
 
   let tuner = null;

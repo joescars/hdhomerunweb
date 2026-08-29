@@ -14,6 +14,7 @@ const apiRoutes = require('./src/routes/api');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+const ASSET_VERSION = process.env.ASSET_VERSION || Date.now().toString();
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
@@ -28,6 +29,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
 app.use(express.urlencoded({ extended: false }));
 
 app.locals.deviceSystemLogUrl = `http://${hdhr.HOST}/log.html`;
+app.locals.assetVersion = ASSET_VERSION;
 
 app.use(indexRoutes);
 app.use(channelsRoutes);

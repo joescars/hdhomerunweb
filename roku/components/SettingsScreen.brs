@@ -7,9 +7,12 @@
 
 sub init()
     m.urlLabel = m.top.findNode("urlLabel")
+    m.codecLabel = m.top.findNode("codecLabel")
     m.statusLabel = m.top.findNode("statusLabel")
     m.checkTask = invalid
+    m.top.streamCodec = normalizeCodec(m.top.streamCodec)
     updateUrlLabel()
+    updateCodecLabel()
     setStatus("Ready")
     onScreenFocus()
 end sub
@@ -23,6 +26,47 @@ sub updateUrlLabel()
     m.urlLabel.text = m.top.serverUrl
 end sub
 
+function normalizeCodec(codec as dynamic) as string
+    if codec = invalid then return "hevc"
+    value = LCase(codec.ToStr())
+    if value = "h264" then return "h264"
+    return "hevc"
+end function
+
+sub updateCodecLabel()
+    if m.codecLabel = invalid then return
+    codec = normalizeCodec(m.top.streamCodec)
+    if codec = "h264"
+        m.codecLabel.text = "H.264 (better compatibility, supports caption pass-through path)"
+    else
+        m.codecLabel.text = "HEVC / H.265 (better efficiency, captions may be unavailable)"
+    end if
+end sub
+
+sub saveStreamCodec(codec as string)
+    scene = m.top.getScene()
+    if scene <> invalid
+        scene.callFunc("writeStreamCodec", codec)
+    end if
+end sub
+
+sub toggleCodec()
+    current = normalizeCodec(m.top.streamCodec)
+    nextCodec = "h264"
+    if current = "h264" then nextCodec = "hevc"
+
+    m.top.streamCodec = nextCodec
+    updateCodecLabel()
+    saveStreamCodec(nextCodec)
+    m.top.codecSaved = nextCodec
+
+    if nextCodec = "h264"
+        setStatus("Codec saved: H.264")
+    else
+        setStatus("Codec saved: HEVC")
+    end if
+end sub
+
 sub setStatus(text as string)
     if m.statusLabel = invalid then return
     m.statusLabel.text = text
@@ -30,7 +74,10 @@ end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if press
-        if key = "OK"
+        if key = "left" or key = "right"
+            toggleCodec()
+            return true
+        else if key = "OK"
             setStatus("Editing URL…")
             showKeyboard()
             return true
