@@ -27,19 +27,19 @@ sub updateUrlLabel()
 end sub
 
 function normalizeCodec(codec as dynamic) as string
-    if codec = invalid then return "hevc"
+    if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
-    if value = "h264" then return "h264"
-    return "hevc"
+    if value = "hevc" then return "hevc"
+    return "h264"
 end function
 
 sub updateCodecLabel()
     if m.codecLabel = invalid then return
     codec = normalizeCodec(m.top.streamCodec)
     if codec = "h264"
-        m.codecLabel.text = "H.264 (better compatibility, supports caption pass-through path)"
+        m.codecLabel.text = "H.264 (better compatibility, closed captions supported)"
     else
-        m.codecLabel.text = "HEVC / H.265 (better efficiency, captions may be unavailable)"
+        m.codecLabel.text = "HEVC / H.265 (better efficiency, closed captions unavailable)"
     end if
 end sub
 

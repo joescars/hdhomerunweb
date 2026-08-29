@@ -109,10 +109,10 @@ sub doStart()
 end sub
 
 function normalizeCodec(codec as dynamic) as string
-    if codec = invalid then return "hevc"
+    if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
-    if value = "h264" then return "h264"
-    return "hevc"
+    if value = "hevc" then return "hevc"
+    return "h264"
 end function
 
 function classifyFailureReason(errorText as string) as string

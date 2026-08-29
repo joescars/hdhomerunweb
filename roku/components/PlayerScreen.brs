@@ -40,10 +40,10 @@ sub onScreenFocus()
 end sub
 
 function normalizeCodec(codec as dynamic) as string
-    if codec = invalid then return "hevc"
+    if codec = invalid then return "h264"
     value = LCase(codec.ToStr())
-    if value = "h264" then return "h264"
-    return "hevc"
+    if value = "hevc" then return "hevc"
+    return "h264"
 end function
 
 function buildStreamPath(channelNumber as dynamic) as string
@@ -205,6 +205,19 @@ sub playStream()
     content.url = url
     content.streamFormat = "hls"
     content.live = true
+
+    ' Unlike a TV or browser, Roku's Video node does not auto-detect
+    ' embedded EIA-608 captions from H.264 SEI data - it only looks for a
+    ' caption track if SubtitleTracks explicitly names one. h264_qsv is the
+    ' only codec path that embeds caption data at all (see
+    ' docs/closed-captioning-options.md); hevc has nothing to point at.
+    if normalizeCodec(m.top.codec) = "h264"
+        content.SubtitleTracks = [{
+            TrackName: "eia608/1"
+            Language: "eng"
+            Description: "English"
+        }]
+    end if
 
     m.video.content = content
     m.video.visible = true

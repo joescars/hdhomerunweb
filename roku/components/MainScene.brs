@@ -33,20 +33,25 @@ function readServerUrl() as string
     return defaultUrl
 end function
 
+' h264_qsv is the only hardware-encoded codec path with closed-caption
+' support today (hevc_qsv has no -a53cc equivalent - see
+' docs/closed-captioning-options.md). Default to h264 so captions work out
+' of the box; users who don't need captions and want HEVC's bitrate/quality
+' edge can switch in Settings.
 function normalizeStreamCodec(codec as dynamic) as string
-    if codec = invalid then return "hevc"
+    if codec = invalid then return "h264"
     text = LCase(codec.ToStr())
-    if text = "h264" then return "h264"
-    return "hevc"
+    if text = "hevc" then return "hevc"
+    return "h264"
 end function
 
 function readStreamCodec() as string
     sec = CreateObject("roRegistrySection", "hdhrweb")
-    if sec = invalid then return "hevc"
+    if sec = invalid then return "h264"
     if sec.Exists("streamCodec")
         return normalizeStreamCodec(sec.Read("streamCodec"))
     end if
-    return "hevc"
+    return "h264"
 end function
 
 sub writeServerUrl(url as string)

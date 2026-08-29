@@ -4,15 +4,17 @@ This document outlines practical ways to add closed captioning (CC) to this
 project, based on the current streaming architecture (Node/Express + ffmpeg,
 browser via hls.js, Roku via SceneGraph `Video`).
 
-## Resolution (2026-08-29): web captions working, root causes identified
+## Resolution (2026-08-29): web and Roku captions working, root causes identified
 
 Everything below "Current state" through "Practical recommendation" is the
 **original pre-implementation planning doc**, kept for historical context.
 What actually happened when Option A (embedded captions) was implemented and
 tested against a real device does not match what the doc predicted, so read
-the plan below as background, not as current fact. See the CHANGELOG entry
-dated 2026-08-29 ("Fixed: Web closed captions actually working end-to-end")
-for the full diagnostic narrative. Summary of what's actually true now:
+the plan below as background, not as current fact. See the two CHANGELOG
+entries dated 2026-08-29 ("Fixed: Web closed captions actually working
+end-to-end" and "Fixed: Roku now defaults to a codec that supports closed
+captions") for the full diagnostic narrative. Summary of what's actually
+true now:
 
 - **Option A (embedded CEA-608 passthrough) is the working path for web**,
   but only with `STREAM_DECODE_MODE=sw` (now the default). Full hardware QSV
@@ -43,9 +45,25 @@ for the full diagnostic narrative. Summary of what's actually true now:
   doesn't have this issue, which is part of why the failure was confusing
   during diagnosis — the sidecar's plumbing "looked" more standard while
   being the actually-broken path.
-- **Roku was not addressed** — still out of scope, still defaults to HEVC
-  with no caption path at all (`hevc_qsv` has no `-a53cc` equivalent). See
-  the CHANGELOG entry for what would need to change.
+- **Roku**: `hevc_qsv` was confirmed (via its full `ffmpeg -h encoder=hevc_qsv`
+  option list) to have no caption-related option at all — no `-a53cc`
+  equivalent exists, hardware or otherwise. Software `libx265` does support
+  `-a53cc` but full software HEVC encoding is too CPU-expensive to be a
+  viable default. Roku now defaults to `h264` (`h264_qsv`, hardware encode,
+  same working pipeline as web) instead of `hevc`. That alone wasn't enough,
+  though: **Roku's Video node does not auto-detect embedded EIA-608
+  captions from H.264 SEI data the way a TV or hls.js does** — it requires
+  explicit `SubtitleTracks` metadata (`TrackName: "eia608/1"`) on the
+  `ContentNode`, per
+  [Roku's own closed-caption docs](https://developer.roku.com/dev/docs/closed-caption).
+  Without it, Roku's system Settings → Accessibility → Captioning track
+  reports "Not available" even with correct caption data flowing and system
+  captions set to "On always". See the two CHANGELOG entries "Fixed: Roku
+  now defaults to a codec that supports closed captions" and "Fixed: Roku
+  Video node now actually renders embedded captions" for detail — the
+  second one covers a useful remote-debugging technique (ECP keypresses,
+  telnet debug console, `/stream/.../stats`, and Roku's screenshot API
+  quirks) for testing without needing to be in front of the TV.
 
 ## Current state in this repo
 

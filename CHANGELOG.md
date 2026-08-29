@@ -4,6 +4,77 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Fixed: Roku Video node now actually renders embedded captions
+
+Follow-up to the codec-default fix below. Even after Roku was defaulted to
+`h264` (verified server-side: a real Roku-initiated session showed
+`captionActive: true`, `captionStrategy: a53cc_h264_qsv`, same working
+pipeline as web), captions still didn't render on-device — Roku's system
+Settings → Accessibility → Captioning track reported "Not available" even
+with "Closed captioning: On always" set.
+
+Root cause: unlike a TV or a browser (hls.js), **Roku's SceneGraph Video
+node does not auto-detect embedded EIA-608 captions from H.264 SEI data at
+all** — confirmed via Roku's own developer docs
+([developer.roku.com/dev/docs/closed-caption](https://developer.roku.com/dev/docs/closed-caption)).
+It only looks for a caption track if the `ContentNode` explicitly names one
+via `SubtitleTracks`, with `TrackName` set to the literal string `"eia608/n"`
+(n = caption channel). This is a Roku-specific requirement with no
+equivalent on the web side, which is why it wasn't caught by the earlier
+(correct) web fix.
+
+- `roku/components/PlayerScreen.brs` (`playStream`): the `ContentNode` now
+  sets `content.SubtitleTracks = [{TrackName: "eia608/1", Language: "eng",
+  Description: "English"}]` whenever the active codec is `h264` (the only
+  codec path that embeds caption data — see the fix above). Confirmed
+  working end-to-end on-device: system Settings → Accessibility →
+  Captioning track now lists the track, and captions render live.
+- Verification method used for this whole Roku pass, worth keeping in mind
+  for future Roku debugging: sideloaded via `roku/deploy.sh`, drove the app
+  remotely via Roku's ECP (`POST http://<roku-ip>:8060/keypress/<Key>`,
+  `POST .../launch/dev`), captured the telnet debug console
+  (`nc <roku-ip> 8085`), and cross-checked the server's own
+  `/stream/:channel/:codec/:profile/stats` for the Roku-initiated session to
+  confirm codec/caption-strategy without needing to be in front of the TV.
+  Screenshots via `POST --digest -u rokudev:<password>
+  http://<roku-ip>/plugin_inspect` (form field `mysubmit=Screenshot`) then
+  fetching `http://<roku-ip>/pkgs/dev.jpg` only capture the UI/graphics
+  layer, **not** the hardware video overlay plane — a black background
+  behind UI elements in such a screenshot does not mean video isn't playing.
+
+### Fixed: Roku now defaults to a codec that supports closed captions
+
+Follow-up to the web caption fix below. Checked `hevc_qsv`'s full ffmpeg
+option list directly (`ffmpeg -h encoder=hevc_qsv`) and confirmed it has no
+caption-related option at all — no `-a53cc` equivalent exists for this
+encoder. (Software `libx265` does support `-a53cc`, but full software HEVC
+encoding is far more CPU-expensive than hardware QSV and isn't a viable
+default for a live multi-stream server.) Since Roku defaulted to HEVC
+(`hevc_qsv`), it had no caption path at all regardless of source content,
+even after the web fixes below — `roku/components/SettingsScreen.xml`
+already advised "Use H.264 if you need closed captions support" but that was
+advisory text only, with nothing in code defaulting to or enforcing it.
+
+- Flipped the default codec from `hevc` to `h264` in all four places it's
+  independently resolved (BrightScript components can't easily share code,
+  so each has its own `normalizeCodec`/`normalizeStreamCodec` fallback):
+  `roku/components/MainScene.brs` (`normalizeStreamCodec`, `readStreamCodec`),
+  `roku/components/SettingsScreen.brs`, `roku/components/PlayerScreen.brs`,
+  `roku/components/StreamStartTask.brs`. `h264` still maps to `h264_qsv`
+  (hardware encode) via `CODECS` in `src/stream.js` — this is not a
+  software-encoding fallback, just a different hardware codec choice, using
+  the same pipeline validated for web (requires `STREAM_DECODE_MODE=sw`,
+  already the global default as of the fix below).
+- Updated `SettingsScreen.brs` caption-availability label text from
+  hedged ("captions may be unavailable") to definite ("closed captions
+  unavailable" / "closed captions supported") now that this has been
+  confirmed rather than assumed.
+- Bumped Roku `build_version` to 34 in `roku/manifest`.
+
+Users who don't need captions and want HEVC's bitrate/quality edge can still
+switch to HEVC in Settings — the registry-persisted preference and manual
+toggle are unchanged, only the default changed.
+
 ### Fixed: Web closed captions actually working end-to-end (root cause found and resolved)
 
 Phase 1 (2026-08-28) shipped two caption mechanisms — embedded `-a53cc`
