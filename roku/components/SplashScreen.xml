@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    SplashScreen - full-screen branded splash shown for a fixed ~2s while
+    MainScene loads the guide in the background underneath it (GuideScreen
+    is pushed before this screen, so its data fetch starts immediately even
+    though it's hidden - see MainScene.brs's init()). Purely a timer-driven
+    reveal, no user interaction.
+-->
+<component name="SplashScreen" extends="Group">
+    <interface>
+        <!-- out: fires once the fixed display duration has elapsed -->
+        <field id="finished" type="boolean" alwaysNotify="true" />
+        <!-- callable from MainScene -->
+        <function name="onScreenFocus" />
+    </interface>
+
+    <children>
+        <Poster
+            translation="[0, 0]"
+            width="1920"
+            height="1080"
+            uri="pkg:/images/splash_bg_screen.png" />
+
+        <Label
+            id="loadingLabel"
+            translation="[960, 984]"
+            width="920"
+            height="60"
+            horizAlign="right"
+            vertAlign="center"
+            font="font:MediumBoldSystemFont"
+            text="Loading Mittens' favorite channels..."
+            color="0xF5EFE0FF" />
+
+        <Timer id="splashTimer" duration="2" repeat="false" />
+    </children>
+
+    <script type="text/brightscript" uri="SplashScreen.brs" />
+</component>

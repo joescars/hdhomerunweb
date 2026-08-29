@@ -8,7 +8,12 @@ sub init()
     m.serverUrl = readServerUrl()
     m.streamCodec = readStreamCodec()
 
+    ' GuideScreen is pushed first so its guide-data fetch starts immediately
+    ' in the background, then SplashScreen is pushed on top of it (pushScreen
+    ' hides whatever's beneath) - the fixed ~2s splash duration overlaps with
+    ' guide loading instead of adding to it.
     showGuide()
+    showSplash()
 end sub
 
 ' --- registry -------------------------------------------------------------
@@ -121,6 +126,18 @@ sub showGuide()
     screen.observeField("openSettings", "onOpenSettings")
     m.guideScreen = screen
     pushScreen(screen)
+end sub
+
+' --- splash ---------------------------------------------------------------
+
+sub showSplash()
+    screen = CreateObject("roSGNode", "SplashScreen")
+    screen.observeField("finished", "onSplashFinished")
+    pushScreen(screen)
+end sub
+
+sub onSplashFinished(event as object)
+    popScreen()
 end sub
 
 ' --- player -------------------------------------------------------------

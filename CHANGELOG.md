@@ -4,6 +4,34 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: Roku branded splash screen (LunaTV artwork) and new app icons
+
+New custom-branded ("LunaTV") artwork replaces the placeholder Roku channel
+icons and splash images, plus a new animated-timing splash screen shown for
+a fixed 2s on launch with a status message, instead of just the static
+manifest-level splash.
+
+- `roku/images/icon_focus_{fhd,hd,sd}.png` and `splash_{fhd,hd}.png`
+  regenerated from supplied source art (center-cropped to each file's
+  existing aspect ratio/pixel dimensions, so no manifest changes were
+  needed - `mm_icon_focus_*`/`splash_screen_*` already pointed at these
+  filenames).
+- New `roku/components/SplashScreen.xml`/`.brs`: a full-screen custom
+  screen (not the manifest's static `splash_screen_*`, which can't have
+  dynamic content) showing a new `splash_bg_screen.png` (full 1920x1080,
+  cropped from the same source art) with a bottom-right status label
+  ("Loading Mittens' favorite channels...") for a fixed 2 seconds via a
+  `Timer` node, then fires a `finished` field.
+- `roku/components/MainScene.brs`: `init()` now pushes `GuideScreen`
+  *before* `SplashScreen` (rather than instead of it) - pushing a screen
+  hides whatever's beneath it, so the guide's data fetch starts
+  immediately in the background while the splash is visible on top,
+  instead of only starting after the splash's 2s elapses. `onSplashFinished`
+  just pops the splash, revealing the (by then likely already-loaded)
+  guide underneath - verified on-device via screenshot immediately after
+  the 2s mark showing a fully populated guide, not a loading state.
+- Bumped Roku `build_version` to 40.
+
 ### Added: real resolution/framerate/bitrate in Roku stream diagnostics
 
 The stats panel only ever showed *configured targets* (`Video target: 3200k
