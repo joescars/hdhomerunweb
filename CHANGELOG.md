@@ -2,6 +2,92 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-08-29
+
+### Fixed: Web closed captions actually working end-to-end (root cause found and resolved)
+
+Phase 1 (2026-08-28) shipped two caption mechanisms — embedded `-a53cc`
+passthrough and an experimental WebVTT sidecar — but neither had been
+validated against a real device/channel, and web captions did not work.
+This entry documents the diagnosis and the two real fixes; see
+`docs/closed-captioning-options.md` for the full narrative and rationale.
+
+**Diagnosis process** (channel WSOC-TV 9.1, confirmed CC-carrying via VLC on
+the raw tuner URL as ground truth):
+
+- Server's own `output_ffprobe` caption diagnostics (`session.captions.detected`)
+  reported `false` even once captions were confirmed working end-to-end in the
+  browser — ffprobe's `closed_captions` stream field is an unreliable
+  detector for this content and should not be trusted at face value in
+  `/stream/:channel/:codec/:profile/stats`.
+- With the sidecar off and default (`qsv`) decode mode, VLC showed **no**
+  caption track on our own transcoded `stream.m3u8` output, despite
+  `captionActive: true` (i.e. `-a53cc 1` was applied). Root cause: full
+  hardware QSV decode (`mpeg2_qsv`) does not propagate A/53 CC user-data as
+  frame side-data to the encoder, so there is nothing for `-a53cc` to embed.
+  Switching to `STREAM_DECODE_MODE=sw` (software `mpeg2video` decode, still
+  QSV-encoded) fixed this — confirmed via VLC showing captions on the
+  transcoded output.
+- The WebVTT sidecar (`startWebVttSidecar` in `src/stream.js`) was
+  separately found to be a dead end: ffmpeg's own `subcc`/EIA-608 decoder
+  *does* detect and start decoding this channel's caption data (visible in
+  its stderr: `[Closed Captions Decoder] Data ignored due to columns
+  exceeding screen width`), but drops every cue before writing any, due to
+  an unfixed upstream ffmpeg bug —
+  [ffmpeg trac #11101](https://www.mail-archive.com/ffmpeg-trac@avcodec.org/msg67927.html) —
+  confirmed still present in the container's ffmpeg 7.1.4 build. `captions.vtt`
+  stayed at just the `WEBVTT` header for the life of the session regardless of
+  source content.
+- With `sw` decode confirmed via VLC, the browser's own hls.js still failed
+  to *render* the now-present embedded CEA-608 track: hls.js added the
+  in-band text track in `hidden` mode by default (cues populated correctly —
+  confirmed real caption text and correct timing via a temporary
+  `Hls.Events.CUES_PARSED`/`cuechange` debug overlay added to
+  `views/watch.ejs`), and attempting to enable it via iOS Safari's native
+  video CC menu flipped it to `disabled` rather than `showing`. This appears
+  to be a Safari-specific rough edge with JS-added (`hls.js` in-band, as
+  opposed to `<track src="...">`) text tracks, not a data problem.
+
+**Fixes shipped:**
+
+- `src/stream.js`: `STREAM_DECODE_MODE` now defaults to `sw` instead of
+  `qsv` (software decode, still QSV-encoded) — required for embedded
+  captions to survive transcoding at all. Trades CPU headroom per
+  concurrent stream for working captions; set `STREAM_DECODE_MODE=qsv` to
+  opt back into full hardware decode if captions aren't needed.
+- `src/stream.js`: `WEBVTT_SIDECAR_MODE` now defaults to `off` instead of
+  `on` — the sidecar is blocked by the ffmpeg bug above and was only adding
+  a second, unsynchronized connection to the tuner per session for no
+  benefit. Left in code as an opt-in fallback (`WEBVTT_SIDECAR_MODE=on`) in
+  case the upstream bug is fixed or a future channel needs it.
+- `src/stream.js`: fixed a resource-waste bug found along the way —
+  `startWebVttSidecar()` was respawning ffmpeg roughly once per second for
+  the entire session on any channel without CC data, because
+  `ensureSession()` is invoked on every stream file request (~1/s given
+  `hls_time 1`) and failure state wasn't sticky. `no_subtitle_stream` is now
+  a sticky terminal state per session so it only tries once.
+- `views/watch.ejs`: the embedded CEA-608 text track is now forced into
+  `mode = 'showing'` as soon as hls.js adds it (in the `addtrack` handler),
+  instead of relying on the browser's native CC control — works around the
+  iOS Safari issue described above and means captions render by default
+  with no user interaction required. Also: caption status messaging now
+  distinguishes an embedded (`hls.js` in-band) track from a sidecar
+  (`data-sidecar="webvtt"`, label `English CC`) track instead of lumping
+  both into a generic "track attached" message; removed a dead
+  `Hls.Events.SUBTITLE_TRACKS_UPDATED` listener that could never fire since
+  this pipeline has no `#EXT-X-MEDIA:TYPE=SUBTITLES` renditions.
+- `.env.example`, `docker-compose.yml`: defaults updated to match
+  (`STREAM_DECODE_MODE=sw`, `WEBVTT_SIDECAR_MODE=off`) with comments
+  explaining why.
+
+**Not done / left for later:** Roku was explicitly out of scope for this
+pass. It still defaults to HEVC (`roku/components/MainScene.brs`), and
+`getCaptionConfig()` in `src/stream.js` has no `-a53cc` equivalent for
+`hevc_qsv`, so Roku playback currently has no caption path at all
+regardless of source content. `roku/components/SettingsScreen.xml` already
+advises "Use H.264 if you need closed captions support" but this is
+advisory text only — nothing in code enforces or defaults to it.
+
 ## 2026-08-28
 
 ### Added / changed: Roku codec preference setting (HEVC/H.264)

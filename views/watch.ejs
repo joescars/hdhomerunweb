@@ -75,20 +75,32 @@
         });
     }
 
-    function getCaptionTrackCount() {
-      if (!video || !video.textTracks) return 0;
-      var count = 0;
+    function getCaptionTrackSources() {
+      var sources = { embedded: false, sidecar: false };
+      if (!video || !video.textTracks) return sources;
       for (var i = 0; i < video.textTracks.length; i += 1) {
-        var kind = (video.textTracks[i].kind || '').toLowerCase();
-        if (kind === 'captions' || kind === 'subtitles') count += 1;
+        var track = video.textTracks[i];
+        var trackKind = (track.kind || '').toLowerCase();
+        if (trackKind !== 'captions' && trackKind !== 'subtitles') continue;
+        if (track.label === 'English CC') {
+          sources.sidecar = true;
+        } else {
+          // hls.js creates in-band CEA-608 tracks directly on video.textTracks
+          // without the sidecar's distinguishing label/data-sidecar attribute.
+          sources.embedded = true;
+        }
       }
-      return count;
+      return sources;
     }
 
     function refreshCaptionsStatus() {
-      var tracks = getCaptionTrackCount();
-      if (tracks > 0) {
-        setCaptionsStatus('Captions: track attached. Use player CC/subtitles control to enable when cues are available.');
+      var sources = getCaptionTrackSources();
+      if (sources.embedded && sources.sidecar) {
+        setCaptionsStatus('Captions: embedded CEA-608 track and WebVTT sidecar track both detected. Use player CC/subtitles control to choose one.');
+      } else if (sources.embedded) {
+        setCaptionsStatus('Captions: embedded CEA-608 track detected. Use player CC/subtitles control to enable.');
+      } else if (sources.sidecar) {
+        setCaptionsStatus('Captions: WebVTT sidecar track attached. Use player CC/subtitles control to enable when cues are present.');
       } else {
         setCaptionsStatus('Captions: no track detected yet.');
       }
@@ -170,16 +182,18 @@
           tryAttachWebVttTrack(0);
           setTimeout(refreshCaptionsStatus, 500);
         });
-        hls.on(Hls.Events.SUBTITLE_TRACKS_UPDATED, function (event, data) {
-          var tracks = (data && data.subtitleTracks && data.subtitleTracks.length) || 0;
-          if (tracks > 0) {
-            setCaptionsStatus('Captions: ' + tracks + ' HLS subtitle track(s) detected. Use the player CC/subtitles control to enable.');
-          } else {
-            refreshCaptionsStatus();
-          }
-        });
         hls.on(Hls.Events.ERROR, function (event, data) {
           if (data.fatal) setStatus('Stream error: ' + data.details);
+        });
+        video.textTracks.addEventListener('addtrack', function (e) {
+          // iOS Safari's native CC menu doesn't reliably drive hls.js's
+          // in-band (JS-added) text tracks into 'showing' mode - it can
+          // leave them 'hidden' or flip them to 'disabled' instead. Force
+          // the embedded CEA-608 track on so captions render without
+          // depending on that platform UI.
+          if (e.track && e.track.kind === 'captions' && e.track.label !== 'English CC') {
+            e.track.mode = 'showing';
+          }
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = src;

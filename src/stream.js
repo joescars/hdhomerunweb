@@ -10,12 +10,22 @@ const IDLE_TIMEOUT_MS = 20_000;
 const READY_TIMEOUT_MS = 50_000;
 const CAPTION_PROBE_INTERVAL_MS = 15_000;
 const DEFAULT_PROFILE = 'medium';
-const WEBVTT_SIDECAR_MODE = String(process.env.WEBVTT_SIDECAR_MODE || 'on').toLowerCase() === 'off' ? 'off' : 'on';
+// Blocked by an unfixed upstream ffmpeg bug (EIA-608 "columns exceeding
+// screen width" drops every cue - https://trac.ffmpeg.org/ticket/11101,
+// still present as of ffmpeg 7.1.4) that silently produces an empty VTT
+// file regardless of source captions. Off by default; kept as an opt-in
+// fallback in case that bug is ever fixed upstream.
+const WEBVTT_SIDECAR_MODE = String(process.env.WEBVTT_SIDECAR_MODE || 'off').toLowerCase() === 'on' ? 'on' : 'off';
 const SOURCE_CAPTION_PROBE = String(process.env.SOURCE_CAPTION_PROBE || 'off').toLowerCase() === 'on';
+// Full hardware (qsv) decode does not propagate A/53 CC side data to the
+// encoder, so -a53cc silently produces captionless output. Software decode
+// (still QSV-encoded) is required for embedded captions to survive at all;
+// confirmed via VLC + hls.js CEA-608 parsing. Costs CPU per concurrent
+// stream but is the default since captionless output is a worse trade-off.
 const STREAM_DECODE_MODE = (
-  String(process.env.STREAM_DECODE_MODE || process.env.CAPTION_DECODE_MODE || 'qsv').toLowerCase() === 'sw'
-    ? 'sw'
-    : 'qsv'
+  String(process.env.STREAM_DECODE_MODE || process.env.CAPTION_DECODE_MODE || 'sw').toLowerCase() === 'qsv'
+    ? 'qsv'
+    : 'sw'
 );
 
 const QUALITY_PROFILES = {
@@ -143,6 +153,12 @@ function isProcessAlive(proc) {
 function startWebVttSidecar(session) {
   if (!session) return;
   if (isProcessAlive(session.webvttProcess)) return;
+
+  // Sticky terminal state: a channel confirmed to carry no CC data would
+  // otherwise get ffmpeg respawned on every stream file request (~1/s,
+  // since ensureSession() is called on every segment fetch) for the rest
+  // of the session. Only genuinely transient failures should retry.
+  if (session.webvtt && session.webvtt.reason === 'no_subtitle_stream') return;
 
   if (WEBVTT_SIDECAR_MODE !== 'on') {
     session.webvtt = {

@@ -4,6 +4,49 @@ This document outlines practical ways to add closed captioning (CC) to this
 project, based on the current streaming architecture (Node/Express + ffmpeg,
 browser via hls.js, Roku via SceneGraph `Video`).
 
+## Resolution (2026-08-29): web captions working, root causes identified
+
+Everything below "Current state" through "Practical recommendation" is the
+**original pre-implementation planning doc**, kept for historical context.
+What actually happened when Option A (embedded captions) was implemented and
+tested against a real device does not match what the doc predicted, so read
+the plan below as background, not as current fact. See the CHANGELOG entry
+dated 2026-08-29 ("Fixed: Web closed captions actually working end-to-end")
+for the full diagnostic narrative. Summary of what's actually true now:
+
+- **Option A (embedded CEA-608 passthrough) is the working path for web**,
+  but only with `STREAM_DECODE_MODE=sw` (now the default). Full hardware QSV
+  decode (`mpeg2_qsv`) silently drops the A/53 CC user-data before the
+  encoder ever sees it — `-a53cc 1` has nothing to embed on that path. This
+  was invisible from the server's own diagnostics: `output_ffprobe`-based
+  caption detection (`session.captions.detected`) reports `false` even when
+  captions are confirmed working, so don't trust that field alone — verify
+  with VLC against the raw transcoded `stream.m3u8` directly, or by watching
+  real caption text arrive via `Hls.Events.CUES_PARSED` in the browser.
+- **Option B (WebVTT sidecar) is a dead end, not a fallback** — it hits an
+  unfixed upstream ffmpeg bug
+  ([trac #11101](https://www.mail-archive.com/ffmpeg-trac@avcodec.org/msg67927.html),
+  confirmed present in ffmpeg 7.1.4) where EIA-608 cues are decoded
+  internally (visible in ffmpeg stderr: `Data ignored due to columns
+  exceeding screen width`) but never written out. This isn't a source-data
+  problem or something fixable in this app's ffmpeg invocation — it's
+  upstream. `WEBVTT_SIDECAR_MODE` now defaults to `off`; the code is kept
+  only in case the ffmpeg bug is fixed later.
+- **A third problem the doc didn't anticipate**: even with valid embedded
+  CEA-608 cues arriving correctly (confirmed via debug logging — real text,
+  correct timing), iOS Safari's native CC menu did not reliably drive
+  hls.js's in-band (JS-added) text track into `showing` mode — it left it
+  `hidden` or flipped it to `disabled`. `views/watch.ejs` now force-sets the
+  track to `showing` as soon as hls.js creates it, rather than depending on
+  that platform control. This is specific to in-band tracks created via
+  `addTextTrack()`; a real `<track src="...">` element (like the sidecar's)
+  doesn't have this issue, which is part of why the failure was confusing
+  during diagnosis — the sidecar's plumbing "looked" more standard while
+  being the actually-broken path.
+- **Roku was not addressed** — still out of scope, still defaults to HEVC
+  with no caption path at all (`hevc_qsv` has no `-a53cc` equivalent). See
+  the CHANGELOG entry for what would need to change.
+
 ## Current state in this repo
 
 - `src/stream.js` transcodes live MPEG-TS input to HLS with only video + audio
