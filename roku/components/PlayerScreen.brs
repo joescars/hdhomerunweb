@@ -11,6 +11,11 @@ sub init()
     m.statsPanel = m.top.findNode("statsPanel")
     m.statsTitle = m.top.findNode("statsTitle")
     m.statsBody = m.top.findNode("statsBody")
+    m.channelInfoOverlay = m.top.findNode("channelInfoOverlay")
+    m.infoChannelLabel = m.top.findNode("infoChannelLabel")
+    m.infoNowLabel = m.top.findNode("infoNowLabel")
+    m.infoNextLabel = m.top.findNode("infoNextLabel")
+    m.infoHideTimer = m.top.findNode("infoHideTimer")
     m.tuningStarted = false
     m.statsVisible = false
     m.statsTask = invalid
@@ -22,6 +27,7 @@ sub init()
 
     m.video.observeField("state", "onVideoStateChange")
     m.statsTimer.observeField("fire", "onStatsTimerFire")
+    m.infoHideTimer.observeField("fire", "onInfoHideTimerFire")
 end sub
 
 ' Public - callable from MainScene when this screen becomes top-of-stack.
@@ -115,6 +121,8 @@ sub changeChannelBy(delta as integer)
     m.top.channelNumber = ch.channelNumber
     m.top.channelName = ch.channelName
     m.top.streamPath = buildStreamPath(ch.channelNumber)
+    m.top.currentTitle = ch.currentTitle
+    m.top.nextTitle = ch.nextTitle
 
     if m.streamTask <> invalid
         m.streamTask.control = "STOP"
@@ -225,6 +233,48 @@ sub playStream()
     m.video.content = content
     m.video.visible = true
     m.video.control = "play"
+
+    showChannelInfo()
+end sub
+
+' --- now/next info overlay ------------------------------------------------
+
+' Snapshot at tune time (from the guide's already-fetched EPG data), not
+' live-updated while a program is playing - accurate whenever you tune or
+' channel-surf, which covers the main "what is this" use case without
+' needing a periodic re-fetch during playback.
+sub showChannelInfo()
+    if m.infoChannelLabel = invalid then return
+
+    channelText = m.top.channelNumber.ToStr() + "  " + m.top.channelName
+    m.infoChannelLabel.text = channelText
+
+    nowText = ""
+    if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then nowText = m.top.currentTitle
+    if nowText = "" then nowText = "(no program info)"
+    m.infoNowLabel.text = "Now: " + nowText
+
+    nextText = ""
+    if m.top.nextTitle <> invalid and m.top.nextTitle <> "" then nextText = m.top.nextTitle
+    if nextText <> ""
+        m.infoNextLabel.text = "Next: " + nextText
+        m.infoNextLabel.visible = true
+    else
+        m.infoNextLabel.visible = false
+    end if
+
+    m.channelInfoOverlay.visible = true
+    m.infoHideTimer.control = "stop"
+    m.infoHideTimer.control = "start"
+end sub
+
+sub hideChannelInfo()
+    m.channelInfoOverlay.visible = false
+    m.infoHideTimer.control = "stop"
+end sub
+
+sub onInfoHideTimerFire(event as object)
+    hideChannelInfo()
 end sub
 
 sub onVideoStateChange(event as object)
@@ -248,6 +298,7 @@ end sub
 sub showOverlay(text as string, showSpinner as boolean)
     m.video.visible = false
     hideStatsPanel()
+    hideChannelInfo()
     m.overlayBg.visible = true
     m.spinner.visible = showSpinner
     m.statusLabel.visible = true
@@ -450,6 +501,14 @@ end sub
 function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "up"
         toggleStatsPanel()
+        return true
+    end if
+    if press and key = "options"
+        if m.channelInfoOverlay <> invalid and m.channelInfoOverlay.visible = true
+            hideChannelInfo()
+        else
+            showChannelInfo()
+        end if
         return true
     end if
     if press and key = "rewind"

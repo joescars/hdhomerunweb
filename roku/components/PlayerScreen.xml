@@ -9,6 +9,9 @@
         <field id="streamPath" type="string" />
         <!-- in: ordered list of visible channels for rewind/forward surfing -->
         <field id="channels" type="array" />
+        <!-- in: current/next program titles for the now/next info overlay -->
+        <field id="currentTitle" type="string" />
+        <field id="nextTitle" type="string" />
         <!-- out: fires when the user backs out of the player -->
         <field id="closed" type="boolean" alwaysNotify="true" />
         <!-- callable from MainScene -->
@@ -52,6 +55,31 @@
             vertAlign="center"
             color="0xAAAAAAFF"
             visible="false" />
+
+        <Group id="channelInfoOverlay" translation="[0, 900]" visible="false">
+            <Rectangle width="1920" height="180" color="0x0A1428E6" />
+            <Rectangle width="1920" height="3" color="0x38BDF8FF" />
+            <Label id="infoChannelLabel"
+                translation="[60, 20]"
+                width="1800"
+                height="46"
+                font="font:LargeBoldSystemFont"
+                color="0xFFFFFFFF" />
+            <Label id="infoNowLabel"
+                translation="[60, 78]"
+                width="1800"
+                height="40"
+                font="font:MediumBoldSystemFont"
+                color="0x38BDF8FF" />
+            <Label id="infoNextLabel"
+                translation="[60, 122]"
+                width="1800"
+                height="36"
+                font="font:SmallSystemFont"
+                color="0x9CB0C4FF" />
+        </Group>
+
+        <Timer id="infoHideTimer" duration="5" repeat="false" />
 
         <Group id="statsPanel" translation="[46, 44]" visible="false">
             <Rectangle

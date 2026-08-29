@@ -4,6 +4,54 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: Roku guide UX - live preview, recently-watched pinning, now/next overlay
+
+Three related UX features, built on `feature/roku-ux-preview-favorites-epg`:
+
+**Live channel preview while browsing the guide** (`GuideScreen.xml`/`.brs`):
+plays the currently-focused channel in a small 280x157 box in the detail
+panel. Debounced via a new one-shot `previewDebounceTimer` (0.9s) so
+scrolling through rows doesn't spawn a transcode/tuner session per row -
+only the row the user actually pauses on gets previewed, confirmed
+on-device (`/stream/metrics` showed exactly one new session after 5 rapid
+`Down` presses, not five). Always requests `h264` regardless of the user's
+main playback codec preference - same reasoning as the caption work,
+lowest-risk path, and a background preview is not the place to test
+Direct/HEVC. Entirely best-effort: any failure is silent (box just stays
+black), since a background preview must never interrupt guide browsing.
+Explicitly stopped (`stopPreview()`) before handing off to the real player
+or opening Settings, so it doesn't hold a second session on a potentially
+scarce tuner pool - restarted automatically via `onScreenFocus()` when
+returning to the guide. Removed the detail panel's static legend label to
+make room; folded its hint text into the header's filter label instead.
+
+**Recently-watched channels pinned to the top of the guide** (`MainScene.brs`,
+`GuideScreen.brs`/`.xml`, `GuideRow.brs`/`.xml`): local-only (registry key
+`recentChannels`, most-recent-first, capped at 6 - not synced with the web
+app's server-side favorites), recorded whenever a channel is selected from
+the guide. Applied within both the All and Favorites filters via a new
+`pinRecentChannels()` reorder step. Recent rows get a thin left-edge accent
+bar (`GuideRow`'s new `IsRecent` field) so they're visually distinguishable
+from the rest of the list, not just reordered. Confirmed on-device: a
+watched channel moved from its normal alphabetical position to the top of
+the list on return to the guide.
+
+**Now/next mini info overlay during playback** (`PlayerScreen.xml`/`.brs`):
+a bottom bar showing channel name plus current/next program title, shown
+automatically for 5s (new `infoHideTimer`) whenever you tune or channel-surf,
+and re-summonable on demand via the `*`/Options button (previously unbound
+in the player). Program data flows from `GuideScreen.buildGuideRow()`
+(extended with a new `findNextProgramAt()` - programs are contiguous per
+`src/routes/api.js`, so "next" is just the soonest program starting after
+now) through `tuneToChannelIndex()`'s per-channel array and
+`MainScene.onLaunchPlayer`/`PlayerScreen.changeChannelBy()`. This is a
+snapshot from guide-fetch time, not live-updated during long viewing
+sessions - accurate whenever you tune/surf, which covers the primary
+"what is this" use case without adding a periodic re-fetch loop.
+
+Bumped Roku `build_version` to 42. Direct channel-number entry (the fourth
+UX idea originally discussed) was explicitly excluded from this pass.
+
 ### Added: Roku branded splash screen (LunaTV artwork) and new app icons
 
 New custom-branded ("LunaTV") artwork replaces the placeholder Roku channel

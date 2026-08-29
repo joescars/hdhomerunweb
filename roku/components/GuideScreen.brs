@@ -12,19 +12,26 @@ sub init()
     m.secondTimeLabel = m.top.findNode("secondTimeLabel")
     m.thirdTimeLabel = m.top.findNode("thirdTimeLabel")
     m.filterLabel = m.top.findNode("filterLabel")
+    m.previewVideo = m.top.findNode("previewVideo")
+    m.previewLabel = m.top.findNode("previewLabel")
+    m.previewDebounceTimer = m.top.findNode("previewDebounceTimer")
 
     m.hasLoadedOnce = false
     m.guideStarted = false
     m.lastFocusedIndex = 0
     m.filterMode = readFilterMode()
     m.allChannels = []
+    m.recentChannels = []
     m.lastServerTime = invalid
     m.lastSlotStart = invalid
+    m.previewTask = invalid
+    m.previewChannelNumber = invalid
 
     m.guideGrid.observeField("itemSelected", "onChannelSelected")
     m.guideGrid.observeField("itemFocused", "onChannelFocused")
 
     m.refreshTimer.observeField("fire", "onRefreshTimerFire")
+    m.previewDebounceTimer.observeField("fire", "onPreviewDebounceFire")
     updateFilterLabel()
 end sub
 
@@ -38,6 +45,11 @@ sub onScreenFocus()
         m.guideStarted = true
         m.refreshTimer.control = "start"
         refreshGuide()
+    else
+        ' Returning from Player/Settings - preview was stopped on the way
+        ' out (see tuneToChannelIndex/onKeyEvent), restart it for whatever
+        ' row is currently focused.
+        restartPreviewDebounce()
     end if
 end sub
 
@@ -133,10 +145,59 @@ function getFilteredChannels() as object
                 favorites.Push(ch)
             end if
         end for
-        return favorites
+        return pinRecentChannels(favorites)
     end if
-    return m.allChannels
+    return pinRecentChannels(m.allChannels)
 end function
+
+' Reorders channels so recently-watched ones (present in this list) appear
+' first, in recency order, followed by the remaining channels in their
+' original order. Applies within both the All and Favorites filters.
+function pinRecentChannels(channels as object) as object
+    if m.recentChannels = invalid or m.recentChannels.Count() = 0 then return channels
+
+    byNumber = {}
+    for each ch in channels
+        byNumber[ch.number.ToStr()] = ch
+    end for
+
+    pinned = []
+    usedNumbers = {}
+    for each chNum in m.recentChannels
+        match = byNumber[chNum]
+        if match <> invalid
+            pinned.Push(match)
+            usedNumbers[chNum] = true
+        end if
+    end for
+
+    if pinned.Count() = 0 then return channels
+
+    rest = []
+    for each ch in channels
+        if usedNumbers[ch.number.ToStr()] <> true
+            rest.Push(ch)
+        end if
+    end for
+
+    pinned.Append(rest)
+    return pinned
+end function
+
+function isRecentChannel(channelNumber as dynamic) as boolean
+    if m.recentChannels = invalid or channelNumber = invalid then return false
+    chStr = channelNumber.ToStr()
+    for each chNum in m.recentChannels
+        if chNum = chStr then return true
+    end for
+    return false
+end function
+
+sub onRecentChannelsChange(event as object)
+    m.recentChannels = event.getData()
+    if m.recentChannels = invalid then m.recentChannels = []
+    if m.hasLoadedOnce then applyCurrentFilter()
+end sub
 
 sub setFilterMode(mode as string)
     if mode <> "all" and mode <> "favorites" then return
@@ -152,9 +213,9 @@ end sub
 sub updateFilterLabel()
     if m.filterLabel = invalid then return
     if m.filterMode = "favorites"
-        m.filterLabel.text = "Filter: Favorites"
+        m.filterLabel.text = "Filter: Favorites  •  *: Options"
     else
-        m.filterLabel.text = "Filter: All"
+        m.filterLabel.text = "Filter: All  •  *: Options"
     end if
 end sub
 
@@ -221,6 +282,7 @@ end function
 
 function buildGuideRow(ch as object, serverTime as integer, slotStart as integer) as object
     current = findProgramAt(ch.programs, serverTime)
+    nextProgram = findNextProgramAt(ch.programs, serverTime)
     firstSlot = findProgramAt(ch.programs, slotStart)
     secondSlot = findProgramAt(ch.programs, slotStart + 1800)
     thirdSlot = findProgramAt(ch.programs, slotStart + 3600)
@@ -230,7 +292,9 @@ function buildGuideRow(ch as object, serverTime as integer, slotStart as integer
         detailsTitle = detailsTitle + " - " + current.episodeTitle
     end if
 
-    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis
+    isRecent = isRecentChannel(ch.number)
+
+    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis + "|" + nextProgram.title + "|" + isRecent.ToStr()
 
     return {
         ChannelNumber: ch.number
@@ -238,11 +302,13 @@ function buildGuideRow(ch as object, serverTime as integer, slotStart as integer
         LogoUri: ch.logo
         StreamPath: ch.streamPath
         Favorite: ch.favorite
+        IsRecent: isRecent
         FirstTitle: firstSlot.title
         SecondTitle: secondSlot.title
         ThirdTitle: thirdSlot.title
         DetailsTitle: detailsTitle
         Synopsis: current.synopsis
+        NextTitle: nextProgram.title
         RowSignature: rowSignature
     }
 end function
@@ -252,11 +318,13 @@ sub patchGuideRowNode(node as object, row as object)
     node.LogoUri = row.LogoUri
     node.StreamPath = row.StreamPath
     node.Favorite = row.Favorite
+    node.IsRecent = row.IsRecent
     node.FirstTitle = row.FirstTitle
     node.SecondTitle = row.SecondTitle
     node.ThirdTitle = row.ThirdTitle
     node.DetailsTitle = row.DetailsTitle
     node.Synopsis = row.Synopsis
+    node.NextTitle = row.NextTitle
     node.RowSignature = row.RowSignature
 end sub
 
@@ -277,6 +345,21 @@ function findProgramAt(programs as object, timestamp as integer) as object
         end if
     end for
     return { title: "", episodeTitle: "", synopsis: "" }
+end function
+
+' Programs are contiguous (no gaps - see src/routes/api.js), so "next" is
+' just the soonest program starting after timestamp.
+function findNextProgramAt(programs as object, timestamp as integer) as object
+    best = invalid
+    for each program in programs
+        if program.start > timestamp
+            if best = invalid or program.start < best.start
+                best = program
+            end if
+        end if
+    end for
+    if best = invalid then return { title: "", episodeTitle: "", synopsis: "" }
+    return { title: best.title, episodeTitle: best.episodeTitle, synopsis: best.synopsis }
 end function
 
 function formatGuideTime(epochSeconds as integer) as string
@@ -308,6 +391,7 @@ sub onChannelFocused(event as object)
     idx = event.getData()
     m.lastFocusedIndex = idx
     updateFocusedDetails(idx)
+    restartPreviewDebounce()
 end sub
 
 sub tuneToChannelIndex(chIdx as integer)
@@ -315,6 +399,10 @@ sub tuneToChannelIndex(chIdx as integer)
     if content = invalid then return
     chNode = content.getChild(chIdx)
     if chNode = invalid then return
+
+    ' Release the preview's tuner before handing off to the real player -
+    ' don't hold two sessions on a potentially scarce tuner pool at once.
+    stopPreview()
 
     channels = []
     for i = 0 to content.GetChildCount() - 1
@@ -324,6 +412,8 @@ sub tuneToChannelIndex(chIdx as integer)
                 channelNumber: c.ChannelNumber
                 channelName: c.ChannelName
                 streamPath: c.StreamPath
+                currentTitle: c.DetailsTitle
+                nextTitle: c.NextTitle
             })
         end if
     end for
@@ -332,6 +422,8 @@ sub tuneToChannelIndex(chIdx as integer)
         channelNumber: chNode.ChannelNumber
         channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
+        currentTitle: chNode.DetailsTitle
+        nextTitle: chNode.NextTitle
         channels: channels
     }
 end sub
@@ -358,10 +450,89 @@ sub hideStatus()
     m.statusLabel.visible = false
 end sub
 
+' --- live channel preview --------------------------------------------------
+'
+' Plays the currently-focused channel in a small preview box in the detail
+' panel, so browsing shows what's actually on instead of just program text.
+' Debounced (previewDebounceTimer, ~0.9s) so scrolling through rows doesn't
+' spawn a transcode/tuner session per row - only the row the user actually
+' pauses on gets previewed. Entirely best-effort: any failure (tuner busy,
+' network, timeout) just leaves the preview box black rather than showing
+' an error, since a background preview should never interrupt browsing.
+
+sub restartPreviewDebounce()
+    m.previewDebounceTimer.control = "stop"
+    m.previewDebounceTimer.control = "start"
+end sub
+
+sub onPreviewDebounceFire(event as object)
+    startPreviewForFocusedChannel()
+end sub
+
+sub startPreviewForFocusedChannel()
+    content = m.guideGrid.content
+    if content = invalid then return
+    chNode = content.getChild(m.lastFocusedIndex)
+    if chNode = invalid then return
+
+    channelNumber = chNode.ChannelNumber.ToStr()
+    if channelNumber = m.previewChannelNumber then return
+
+    stopPreview()
+    m.previewChannelNumber = channelNumber
+    m.previewLabel.text = chNode.ChannelName
+
+    task = CreateObject("roSGNode", "StreamStartTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = channelNumber
+    ' Always h264 for the preview regardless of the user's main playback
+    ' codec preference - lowest-risk/most broadly compatible path (same
+    ' reasoning as the caption work: h264_qsv is the one codec proven to
+    ' just work), and a background preview is not the place to test Direct
+    ' mode or HEVC.
+    task.codec = "h264"
+    task.observeField("result", "onPreviewStreamResult")
+    task.control = "RUN"
+    m.previewTask = task
+end sub
+
+sub onPreviewStreamResult(event as object)
+    result = event.getData()
+    taskNode = event.getRoSGNode()
+    m.previewTask = invalid
+    if result = invalid or result.state <> "ready" then return
+
+    ' The focused row may have moved on again while this was in flight -
+    ' only apply the result if it's still for the channel we currently want.
+    if taskNode = invalid or taskNode.channelNumber <> m.previewChannelNumber then return
+
+    url = m.top.serverUrl + "/stream/" + m.previewChannelNumber + "/h264/stream.m3u8"
+    content = CreateObject("roSGNode", "ContentNode")
+    content.url = url
+    content.streamFormat = "hls"
+    content.live = true
+
+    m.previewVideo.content = content
+    m.previewVideo.control = "play"
+end sub
+
+sub stopPreview()
+    m.previewDebounceTimer.control = "stop"
+    if m.previewTask <> invalid
+        m.previewTask.control = "STOP"
+        m.previewTask = invalid
+    end if
+    m.previewVideo.control = "stop"
+    m.previewVideo.content = invalid
+    m.previewLabel.text = ""
+    m.previewChannelNumber = invalid
+end sub
+
 ' --- key handling ---------------------------------------------------------
 
 function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "options"
+        stopPreview()
         m.top.openSettings = true
         return true
     end if

@@ -1,6 +1,7 @@
 sub init()
     m.background = m.top.findNode("background")
     m.channelBackground = m.top.findNode("channelBackground")
+    m.recentAccent = m.top.findNode("recentAccent")
     m.channelLogo = m.top.findNode("channelLogo")
     m.channelLabel = m.top.findNode("channelLabel")
     m.favoriteStar = m.top.findNode("favoriteStar")
@@ -29,6 +30,7 @@ sub onContentChange(event as object)
     end if
     m.channelLabel.text = content.ChannelName
     m.favoriteStar.visible = (content.Favorite = true)
+    m.recentAccent.visible = (content.IsRecent = true)
     m.firstLabel.text = content.FirstTitle
     m.secondLabel.text = content.SecondTitle
     m.thirdLabel.text = content.ThirdTitle

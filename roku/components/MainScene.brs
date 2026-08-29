@@ -86,6 +86,45 @@ sub writeStreamCodec(codec as string)
     sec.Flush()
 end sub
 
+' --- recently watched -------------------------------------------------------
+' Local-only (not synced with the web app's server-side favorites) - a
+' most-recent-first list of channel numbers, capped at RecentChannelsMax()
+' so the guide's pinned row stays a quick-glance list rather than a second
+' full channel list.
+
+function RecentChannelsMax() as integer
+    return 6
+end function
+
+function readRecentChannels() as object
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return []
+    if not sec.Exists("recentChannels") then return []
+
+    raw = sec.Read("recentChannels")
+    if raw = invalid or raw = "" then return []
+    return raw.Split(",")
+end function
+
+sub recordRecentChannel(channelNumber as dynamic)
+    if channelNumber = invalid then return
+    chStr = channelNumber.ToStr()
+    if chStr = "" then return
+
+    existing = readRecentChannels()
+    updated = [chStr]
+    for each ch in existing
+        if ch <> chStr and updated.Count() < RecentChannelsMax()
+            updated.Push(ch)
+        end if
+    end for
+
+    sec = CreateObject("roRegistrySection", "hdhrweb")
+    if sec = invalid then return
+    sec.Write("recentChannels", updated.Join(","))
+    sec.Flush()
+end sub
+
 ' --- screen stack -----------------------------------------------------------
 
 ' NOTE: we deliberately call the screen's own "onScreenFocus" function rather
@@ -122,6 +161,7 @@ end function
 sub showGuide()
     screen = CreateObject("roSGNode", "GuideScreen")
     screen.serverUrl = m.serverUrl
+    screen.recentChannels = readRecentChannels()
     screen.observeField("launchPlayer", "onLaunchPlayer")
     screen.observeField("openSettings", "onOpenSettings")
     m.guideScreen = screen
@@ -151,6 +191,8 @@ sub onLaunchPlayer(event as object)
     if m.streamCodec = invalid or m.streamCodec = "" then m.streamCodec = readStreamCodec()
     codec = normalizeStreamCodec(m.streamCodec)
 
+    recordRecentChannel(data.channelNumber)
+
     screen = CreateObject("roSGNode", "PlayerScreen")
     screen.serverUrl = m.serverUrl
     screen.channelNumber = data.channelNumber
@@ -158,12 +200,22 @@ sub onLaunchPlayer(event as object)
     screen.codec = codec
     screen.streamPath = "/stream/" + data.channelNumber.ToStr() + "/" + codec + "/stream.m3u8"
     screen.channels = data.channels
+    screen.currentTitle = data.currentTitle
+    screen.nextTitle = data.nextTitle
     screen.observeField("closed", "onPlayerClosed")
     pushScreen(screen)
 end sub
 
 sub onPlayerClosed(event as object)
     popScreen()
+    ' GuideScreen is created once and reused (not recreated on every visit),
+    ' so its recentChannels snapshot needs an explicit refresh here to
+    ' reflect whatever was just watched. Setting the field (rather than
+    ' forcing a full refreshGuide() network re-fetch) triggers GuideScreen's
+    ' own onChange handler to just re-render from its already-cached data.
+    if m.guideScreen <> invalid
+        m.guideScreen.recentChannels = readRecentChannels()
+    end if
 end sub
 
 ' --- settings -----------------------------------------------------------
