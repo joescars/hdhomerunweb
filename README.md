@@ -9,7 +9,7 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 ### Client (mobile-first, the default landing page)
 
 - **TV Guide** (`/`, also `/guide`) — live program guide (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required. A large one-tap Watch button per channel starts playback immediately; tap the row itself to expand upcoming programs. A denser cable-style channel × time grid with a live "now" line is also available at `/guide/grid` for desktop use.
-- **Watch Live TV** (`/watch/:channel`) - plays a channel directly in the browser. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js), including closed captions. Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
+- **Watch Live TV** — tapping Watch opens the video in a full-screen overlay right on the guide page, not a separate page load; closing it (✕, Escape, or the device Back gesture) drops you back exactly where you were, guide scroll position and filters intact. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js) (native HLS on iOS Safari), including closed captions, with autoplay (falling back to muted autoplay if the browser blocks sound). Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
 - Add the site to your iOS/Android home screen (`Share → Add to Home Screen`) for an app-like icon and full-screen launch — no App Store needed.
 
 ### Admin (`/admin`, linked via the small gear icon in the client header)
@@ -22,13 +22,20 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 
 ### Roku
 
-- **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server: live channel preview and recently-watched pinning in the guide, now/next info overlay during playback, closed captions, and an experimental no-transcode "Direct" streaming mode. See [roku/README.md](roku/README.md) for setup and sideloading instructions.
+- **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server:
+  - Live channel preview in the guide (a small tuned thumbnail as you browse rows, debounced so it doesn't tune every channel you scroll past; shows the current program's artwork while loading or if you turn preview off, instead of a black box). Can be disabled entirely in Settings for systems with few tuners.
+  - Recently-watched channels pinned to the top of the guide.
+  - A now/next info overlay during playback (press OK or `*`/Options) showing what's on and what's up next.
+  - Closed captions.
+  - Three codec/streaming modes, switchable in Settings: `h264`/`hevc` transcode (same QSV pipeline as the browser client) or an experimental no-transcode **Direct** mode (`-c copy` remux) — Direct is also currently the only mode that plays ATSC 3.0 (NextGen TV, HEVC Main10 + AC-4) channels; the transcode modes don't support ATSC 3.0 sources yet.
+
+  See [roku/README.md](roku/README.md) for setup and sideloading instructions.
 
 ## Screenshots
 
-| TV Guide |
-|---|
-| ![TV Guide](docs/screen-tv-guide.jpeg) |
+| TV Guide | Watching |
+|---|---|
+| ![TV Guide](docs/screen-tv-guide.jpeg) | ![Watching a channel](docs/screen-watch.jpeg) |
 
 | Channel Lineup | System Status | Detect Channels |
 |---|---|---|
