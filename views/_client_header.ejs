@@ -13,7 +13,8 @@
   <link rel="stylesheet" href="/css/client.css">
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
 </head>
-<body class="client-theme">
+<body class="client-theme<% if (typeof bare !== 'undefined' && bare) { %> client-theme-bare<% } %>">
+<% if (typeof bare === 'undefined' || !bare) { %>
   <nav class="navbar navbar-expand client-navbar sticky-top">
     <div class="container-fluid align-items-center">
       <a href="/" class="d-flex align-items-center text-decoration-none">
@@ -25,3 +26,6 @@
     </div>
   </nav>
   <main class="container py-3"<% if (typeof fluid === 'undefined' || !fluid) { %> style="max-width: 640px;"<% } %>>
+<% } else { %>
+  <main class="p-0">
+<% } %>

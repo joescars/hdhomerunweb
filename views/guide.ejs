@@ -25,6 +25,18 @@
   No channels match the current filters.
 </div>
 
+<!-- Full-screen in-page watch overlay - tapping a channel's Watch button
+     opens this instead of navigating to /watch/:channel as a separate
+     page, so the guide (scroll position, filters) stays intact underneath.
+     The iframe just loads the existing /watch page with ?embedded=1,
+     which renders full-bleed with no header chrome - see watch.ejs. -->
+<div id="watch-overlay" class="watch-overlay" style="display:none;">
+  <button type="button" id="watch-overlay-close" class="watch-overlay-close" title="Close" aria-label="Close video">
+    <i class="bi bi-x-lg"></i>
+  </button>
+  <iframe id="watch-overlay-frame" class="watch-overlay-frame" allow="autoplay; fullscreen" allowfullscreen title="Live video player"></iframe>
+</div>
+
 <script>
   var guideFavoritesCheck = document.getElementById('guide-filter-favorites');
   var guideShowHiddenCheck = document.getElementById('guide-filter-show-hidden');
@@ -58,11 +70,6 @@
     }
   }
 
-  // Same prewarm-then-navigate pattern as the desktop grid view: pick a
-  // quality profile from the connection, fire the stream start request
-  // immediately, then navigate shortly after regardless (so the transcode
-  // is already spinning up server-side by the time /watch loads instead of
-  // starting cold once the page arrives).
   function chooseQualityProfile() {
     var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (!connection) return 'medium';
@@ -74,22 +81,55 @@
     return 'medium';
   }
 
+  // Opens the video in a full-screen overlay in-page (iframe loading the
+  // existing /watch page with ?embedded=1) instead of navigating away, so
+  // the guide stays loaded underneath - closing just returns to exactly
+  // where you were, no reload/re-fetch. pushState so the device Back
+  // gesture closes the video instead of leaving the app entirely.
+  var watchOverlay = document.getElementById('watch-overlay');
+  var watchOverlayFrame = document.getElementById('watch-overlay-frame');
+  var watchOverlayClose = document.getElementById('watch-overlay-close');
+
   function watchChannel(channel) {
     var profile = chooseQualityProfile();
     var encodedChannel = encodeURIComponent(channel);
-    var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile);
+    var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile) + '&embedded=1';
     var startUrl = '/stream/' + encodedChannel + '/h264/' + encodeURIComponent(profile) + '/start';
-    var navigated = false;
 
-    function navigateNow() {
-      if (navigated) return;
-      navigated = true;
-      window.location.href = destination;
-    }
+    // Prewarm in parallel with the iframe load itself - no artificial
+    // delay needed here (unlike the old full-navigation version) since
+    // loading the iframe doesn't cancel this fetch.
+    fetch(startUrl, { method: 'POST' }).catch(function () {});
 
-    setTimeout(navigateNow, 140);
-    fetch(startUrl, { method: 'POST' }).catch(function () {}).finally(navigateNow);
+    watchOverlayFrame.src = destination;
+    watchOverlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    history.pushState({ lunatvWatchOverlay: true }, '', window.location.pathname + window.location.search);
   }
+
+  function closeWatchOverlay() {
+    if (watchOverlay.style.display === 'none') return;
+    watchOverlay.style.display = 'none';
+    watchOverlayFrame.src = 'about:blank'; // stop playback / release the tuner promptly
+    document.body.style.overflow = '';
+    if (history.state && history.state.lunatvWatchOverlay) {
+      history.back();
+    }
+  }
+
+  watchOverlayClose.addEventListener('click', closeWatchOverlay);
+
+  window.addEventListener('popstate', function () {
+    if (watchOverlay.style.display !== 'none') {
+      watchOverlay.style.display = 'none';
+      watchOverlayFrame.src = 'about:blank';
+      document.body.style.overflow = '';
+    }
+  });
+
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape') closeWatchOverlay();
+  });
 
   if (guideShowHiddenCheck) {
     guideShowHiddenCheck.checked = false;

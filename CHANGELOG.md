@@ -4,6 +4,47 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Added: full-screen in-page video overlay for the mobile guide (no page navigation)
+
+Tapping a channel's Watch button previously did a full `window.location`
+navigation to `/watch/:channel` - a real page load, leaving the guide (and
+its scroll position/filter state) behind. Now opens a full-screen overlay
+in-page instead, closer to how a native app modal behaves.
+
+- `views/guide.ejs`: new `#watch-overlay` (fixed full-screen `<div>` with a
+  close button and an `<iframe>`) sits in the page, hidden until
+  `watchChannel()` sets the iframe's `src` to `/watch/:channel?...&embedded=1`
+  and shows it. Chose an iframe loading the *existing* `/watch` page over
+  reimplementing the player inline, to avoid duplicating/risking the
+  already-working HLS.js/captions/heartbeat logic there. Closing (X button,
+  Escape key, or the device Back gesture via a `history.pushState`/`popstate`
+  pair) hides the overlay and resets the iframe to `about:blank` - the
+  latter matters, it's what actually stops playback and releases the
+  tuner promptly rather than leaving a background stream running.
+- `src/routes/watch.js` / `views/watch.ejs`: new `?embedded=1` query flag
+  renders `/watch/:channel` full-bleed (`views/_client_header.ejs` gets a
+  new `bare` option - no navbar, no page padding) instead of the normal
+  page-with-header layout, so the video genuinely fills the screen rather
+  than just being the normal page shown in a smaller frame. The player
+  script itself (HLS.js setup, captions, heartbeat) is completely
+  unchanged - only the surrounding markup differs between embedded and
+  standalone.
+- Desktop grid view (`guide-grid.ejs`) intentionally left as full
+  navigation - this was scoped to the mobile guide specifically.
+- Found and fixed a real bug while building this: `_client_header.ejs`'s
+  new `bare`-mode `if/else` block was left unclosed across the file
+  (`views/*.ejs` `include()` calls each compile as an independent
+  function - an unclosed JS control block can't span across separate
+  included templates, even though the *HTML* `<main>` tag it wraps
+  legitimately can, matching the existing `_header.ejs`/`_footer.ejs`
+  pattern already used elsewhere).
+- Verified end-to-end with a scripted headless-Chrome test (Puppeteer,
+  390×844 mobile viewport): clicking Watch opens the overlay with the
+  correct iframe URL, video actually plays (screenshot showed live
+  content + captions status), and closing returns to the exact same
+  guide state with no reload - confirmed via `history.back()` correctly
+  restoring the URL rather than a fresh navigation.
+
 ### Fixed: Live Preview "Off" setting didn't persist across app restarts
 
 User report: turning Live Preview off in Settings, then fully exiting and

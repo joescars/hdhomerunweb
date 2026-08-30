@@ -56,6 +56,10 @@ router.get('/watch/:channel', async (req, res) => {
     qualityProfile,
     qualityOptions: stream.STREAM_PROFILES,
     webvttSidecarEnabled: String(process.env.WEBVTT_SIDECAR_MODE || 'on').toLowerCase() !== 'off',
+    // Set when loaded inside the mobile guide's full-screen watch overlay
+    // (see guide.ejs) rather than as a standalone page - renders without
+    // the client header/chrome so the video is truly full-bleed.
+    embedded: req.query.embedded === '1',
   });
 });
 
