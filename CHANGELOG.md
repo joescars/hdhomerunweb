@@ -4,6 +4,59 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Fixed: iOS Safari watch overlay - invisible on tap, then required a manual play tap
+
+Two separate bugs found while chasing a "Watch button does nothing on iOS
+Safari" report (desktop Chrome testing never caught either, since neither
+is Chrome-specific).
+
+**Bug 1 - overlay rendered with no size on iOS.** The tap *was* reaching
+the handler (confirmed via a temporary on-screen "tap registered: X.X"
+diagnostic, and a `window.onerror` banner that never fired, ruling out a
+JS exception) - the `#watch-overlay` `<div>` (`position: fixed`, meant to
+cover the whole viewport) just never became visible. Root cause: it was
+nested inside `<main class="container">`, and `position: fixed` positions
+relative to the nearest ancestor that establishes a new "containing
+block" (any ancestor with a `transform`/`filter`/`will-change`/etc. -
+plausible given Bootstrap's container/theme stack) rather than the
+viewport itself if one exists, which can leave a fixed element sized to
+nothing or off-screen. Fixed in `views/guide.ejs` by re-parenting the
+overlay to be a direct child of `<body>` at script-load time
+(`document.body.appendChild(watchOverlay)`), sidestepping the entire bug
+class regardless of which ancestor was actually responsible. Also
+replaced the CSS `inset: 0` shorthand (Safari 14.5+ only) with explicit
+`top/right/bottom/left: 0` on `.watch-overlay`/`.watch-fullbleed` as a
+defensive compatibility fix found during the same investigation.
+
+**Bug 2 - video needed a manual play tap even once visible.** Classic
+autoplay restriction: by the time `video.play()` actually runs (after the
+async tune/`/ready`-poll sequence), the original tap's "user gesture"
+window has closed, and iOS Safari blocks autoplay of *unmuted* video
+without one. Also relevant: iOS Safari doesn't support the MediaSource
+API `hls.js` needs, so iPhone playback was already going through the
+native-HLS fallback branch (`video.canPlayType('application/vnd.apple.mpegurl')`),
+not `hls.js` at all. Fixed in `views/watch.ejs` with a new
+`attemptAutoplay()`: try `video.play()` normally first, and if the
+returned promise rejects, fall back to `video.muted = true; video.play()`
+(always allowed) so the video starts immediately either way - unmuting is
+then one tap on the existing native player controls instead of the video
+sitting frozen on frame one.
+
+**Also fixed while investigating**: `server.js` serves `/public` with
+`maxAge: '7d'` + `immutable: true` - great for performance, but means a
+browser won't even revalidate a CSS file for a week without a version
+bump in the URL. Added `?v=<%= assetVersion %>` (already used for the
+`hls.js` CDN script) to the CSS/logo/favicon/apple-touch-icon links in
+both `_client_header.ejs` and `_header.ejs` - `assetVersion` changes on
+every server restart, making this a real per-deploy cache-buster, not
+just cosmetic. (Turned out not to be the actual cause here, since Private
+Browsing - which bypasses the HTTP cache entirely - showed the identical
+bug, but it's a real gap worth having fixed regardless.)
+
+Temporary diagnostics added during this investigation (on-screen JS error
+banner, "tap registered" status text) were removed once both bugs were
+confirmed fixed.
+
 ### Added: full-screen in-page video overlay for the mobile guide (no page navigation)
 
 Tapping a channel's Watch button previously did a full `window.location`

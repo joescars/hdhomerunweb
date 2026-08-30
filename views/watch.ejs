@@ -178,6 +178,25 @@
       return 'Stream failed to start. It may be in use by another tuner, or the channel may be unavailable.';
     }
 
+    // By the time playback actually starts (after the async tune/poll
+    // sequence), the original tap's "user gesture" window has long closed -
+    // browsers (especially iOS Safari) block autoplay of unmuted video
+    // without one. Try with sound first (works if the browser/site already
+    // has autoplay permission, e.g. from a prior visit); if that's
+    // rejected, fall back to muted autoplay, which is always allowed, so
+    // the video at least starts immediately rather than sitting on the
+    // first frame until the user manually hits the native play button.
+    // Sound is one tap away via the existing native mute control either way.
+    function attemptAutoplay() {
+      var playPromise = video.play();
+      if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch(function () {
+          video.muted = true;
+          video.play().catch(function () {});
+        });
+      }
+    }
+
     function playHls() {
       if (window.Hls && Hls.isSupported()) {
         var hls = new Hls({
@@ -191,7 +210,7 @@
         hls.on(Hls.Events.MANIFEST_PARSED, function () {
           setStatus('Live');
           startHeartbeat();
-          video.play();
+          attemptAutoplay();
           tryAttachWebVttTrack(0);
           setTimeout(refreshCaptionsStatus, 500);
         });
@@ -213,7 +232,7 @@
         video.addEventListener('loadedmetadata', function () {
           setStatus('Live');
           startHeartbeat();
-          video.play();
+          attemptAutoplay();
           tryAttachWebVttTrack(0);
           setTimeout(refreshCaptionsStatus, 500);
         });

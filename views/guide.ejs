@@ -38,17 +38,6 @@
 </div>
 
 <script>
-  // TEMPORARY diagnostic for the iOS Safari "Watch button does nothing"
-  // report - surfaces any script error directly on-screen (no dev tools
-  // needed) since it may be happening before anything else in this script
-  // runs. Remove once the underlying bug is found and fixed.
-  window.addEventListener('error', function (event) {
-    var box = document.createElement('div');
-    box.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#dc2626;color:#fff;padding:10px;font-size:13px;font-family:monospace;white-space:pre-wrap;';
-    box.textContent = 'JS ERROR: ' + event.message + ' (' + event.filename + ':' + event.lineno + ':' + event.colno + ')';
-    document.body.appendChild(box);
-  });
-
   var guideFavoritesCheck = document.getElementById('guide-filter-favorites');
   var guideShowHiddenCheck = document.getElementById('guide-filter-show-hidden');
   var guideCountEl = document.getElementById('guide-channel-count');
@@ -101,30 +90,34 @@
   var watchOverlayFrame = document.getElementById('watch-overlay-frame');
   var watchOverlayClose = document.getElementById('watch-overlay-close');
 
+  // Move the overlay to be a direct child of <body> rather than nested
+  // inside <main class="container">. A position:fixed element positions
+  // relative to the viewport UNLESS an ancestor establishes a new
+  // containing block (any ancestor with a transform/filter/will-change/
+  // perspective, etc.) - if that's happening here, the overlay would
+  // render relative to that ancestor instead of the screen, potentially
+  // ending up sized-to-nothing or off-screen. Re-parenting to <body>
+  // sidesteps the whole category of bug regardless of which ancestor (if
+  // any) is responsible.
+  if (watchOverlay && watchOverlay.parentNode !== document.body) {
+    document.body.appendChild(watchOverlay);
+  }
+
   function watchChannel(channel) {
-    // TEMPORARY diagnostic - confirms the tap/onclick actually fired,
-    // independent of whether the overlay itself renders correctly. Remove
-    // once the iOS Safari "Watch button does nothing" bug is confirmed fixed.
-    if (guideCountEl) guideCountEl.textContent = 'tap registered: ' + channel;
-    try {
-      var profile = chooseQualityProfile();
-      var encodedChannel = encodeURIComponent(channel);
-      var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile) + '&embedded=1';
-      var startUrl = '/stream/' + encodedChannel + '/h264/' + encodeURIComponent(profile) + '/start';
+    var profile = chooseQualityProfile();
+    var encodedChannel = encodeURIComponent(channel);
+    var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile) + '&embedded=1';
+    var startUrl = '/stream/' + encodedChannel + '/h264/' + encodeURIComponent(profile) + '/start';
 
-      // Prewarm in parallel with the iframe load itself - no artificial
-      // delay needed here (unlike the old full-navigation version) since
-      // loading the iframe doesn't cancel this fetch.
-      fetch(startUrl, { method: 'POST' }).catch(function () {});
+    // Prewarm in parallel with the iframe load itself - no artificial
+    // delay needed here (unlike the old full-navigation version) since
+    // loading the iframe doesn't cancel this fetch.
+    fetch(startUrl, { method: 'POST' }).catch(function () {});
 
-      watchOverlayFrame.src = destination;
-      watchOverlay.style.display = 'block';
-      document.body.style.overflow = 'hidden';
-      history.pushState({ lunatvWatchOverlay: true }, '', window.location.pathname + window.location.search);
-    } catch (err) {
-      // TEMPORARY diagnostic - see the window 'error' listener above.
-      window.dispatchEvent(new ErrorEvent('error', { message: 'watchChannel threw: ' + err.message }));
-    }
+    watchOverlayFrame.src = destination;
+    watchOverlay.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    history.pushState({ lunatvWatchOverlay: true }, '', window.location.pathname + window.location.search);
   }
 
   function closeWatchOverlay() {
