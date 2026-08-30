@@ -7,7 +7,12 @@
         <field id="recentChannels" type="array" onChange="onRecentChannelsChange" />
         <!-- in: Settings toggle - each preview holds a tuner while it plays,
              so users with few tuners can turn this off -->
-        <field id="livePreviewEnabled" type="boolean" onChange="onLivePreviewEnabledChange" />
+        <!-- alwaysNotify matters here: a boolean field's implicit default is
+             false, so setting it to false on a freshly-created node (e.g.
+             the user has the setting off) would otherwise be a same-value
+             no-op that never fires onChange, leaving the screen's internal
+             state stuck at init()'s default (true) instead. -->
+        <field id="livePreviewEnabled" type="boolean" alwaysNotify="true" onChange="onLivePreviewEnabledChange" />
         <!-- out: { channelNumber, channelName, streamPath } - fires when the user selects a channel/program -->
         <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
         <!-- out: fires when the user presses the Options remote button -->

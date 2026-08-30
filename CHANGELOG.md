@@ -4,6 +4,40 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Fixed: Live Preview "Off" setting didn't persist across app restarts
+
+User report: turning Live Preview off in Settings, then fully exiting and
+relaunching the app, always came back with previews active again -
+Settings itself correctly showed "Off", but the guide behaved as if it
+were on. Toggling it off again (a real change) fixed it for that session,
+until the next relaunch.
+
+Root cause: a classic Roku SceneGraph gotcha. `GuideScreen.xml`'s
+`livePreviewEnabled` field had an `onChange` handler but no
+`alwaysNotify="true"`. A boolean field's *implicit* default (before
+anything sets it) is `false`. On a fresh launch with the setting off,
+`MainScene.brs` sets the newly-created `GuideScreen`'s field to `false` -
+the same as its already-default value - so SceneGraph treats it as a
+no-op and never fires `onChange`. `GuideScreen.brs`'s own `m.livePreviewEnabled`
+(set to `true` in `init()`, a value that lives on `m`, not `m.top`) never
+gets corrected to `false`, so the screen behaves as if it's on. Turning it
+off *again* mid-session works because that's an actual value change on an
+already-initialized field, which does fire normally.
+
+- `roku/components/GuideScreen.xml`: added `alwaysNotify="true"` to the
+  `livePreviewEnabled` field, matching the pattern already used correctly
+  elsewhere in this codebase (`openSettings`, `finished`, `closed`,
+  `livePreviewSaved` all already have it) - this was the one field that
+  was missed. Checked all other boolean fields across the Roku app for the
+  same gap; none found (`SettingsScreen.xml`'s own `livePreviewEnabled` has
+  no `onChange` at all - it's read directly, not reactively, so it was
+  never affected by this bug, which is why Settings always showed the
+  correct value even while the guide's behavior was wrong).
+- Bumped Roku `build_version` to 51. Verified on-device: fresh launch with
+  the setting off produced zero new sessions in
+  `/stream/metrics` (previously would auto-tune a preview within ~1s of
+  guide focus), and Settings still correctly showed "Off".
+
 ### Fixed: Direct mode now produces output for ATSC 3.0 ("NextGen TV") channels
 
 A user report ("this channel doesn't stream, but the native HDHomeRun app
