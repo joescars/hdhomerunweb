@@ -4,6 +4,49 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Fixed: Direct mode now produces output for ATSC 3.0 ("NextGen TV") channels
+
+A user report ("this channel doesn't stream, but the native HDHomeRun app
+plays it fine") led to discovering this app has no ATSC 3.0 support at all.
+Confirmed via direct ffprobe against the raw tuner source (channel 146.1,
+WJZY): ATSC 3.0 channels broadcast **HEVC Main10** video and **AC-4** audio
+- a completely different codec stack from the MPEG2/AC3 this app's entire
+  pipeline assumes. The HDHomeRun FLEX 4K (this device) tunes ATSC 3.0
+  fine at the RF level; the app's ffmpeg pipeline is what breaks.
+
+**What's fixed**: `src/stream.js`'s Direct mode (`-c copy`, no
+decode/encode) now uses a much larger probe budget (`-probesize 8M
+-analyzeduration 8000000`, up from `500k`/`1s`) for that path only. Without
+it, ffmpeg can't determine AC-4's sample rate/channel count in time and
+`-c copy` fails outright ("Could not write header: Invalid argument") -
+confirmed by direct manual ffmpeg testing against the real channel, both
+before (fails) and after (produces valid HLS output with `hevc` video
+confirmed via ffprobe on the actual output segments) this change. This
+adds a few seconds of startup latency for Direct-mode sessions generally
+(worth revisiting if it's noticeable on ordinary MPEG2/AC3 channels).
+
+**What's still broken**: the H.264/HEVC transcode modes (`getDecodeConfig()`
+in `src/stream.js`) still hardcode an MPEG2 decoder regardless of actual
+source codec, so they fail outright for ATSC 3.0 channels (confirmed:
+session never produces a playlist). Manually testing the fix path further
+turned up a second, separate blocker: even with the correct `hevc_qsv`
+decoder selected, `h264_qsv` encoding then fails ("Current pixel format is
+unsupported") because ATSC 3.0's HEVC Main10 is 10-bit and needs an
+explicit pixel-format conversion step before 8-bit H.264 encoding, which
+the pipeline doesn't have. Out of scope for this pass - Direct mode is the
+practical workaround for ATSC 3.0 channels in the meantime (switch to it
+in Roku Settings, or `codec=direct` on web).
+
+**Unverified**: whether AC-4 **audio** actually plays back correctly even
+in Direct mode. ffmpeg's own remux warned `Stream 1, codec ac4, is muxed
+as a private data stream and may not be recognized upon reading` - the
+audio bytes are copied through, but ffmpeg couldn't fully classify the
+AC-4 bitstream during remux and tagged it generically in the output
+container instead of properly as AC-4. Whether a real player (browser/
+Roku) still recognizes and decodes that track is unconfirmed - needs a
+real on-device playback test with audio, not just an ffprobe/HLS-structure
+check from the server side.
+
 ### Added: OK button shows the now/next info bar during playback
 
 Follow-up to the now/next info overlay - it was only reachable via the `*`

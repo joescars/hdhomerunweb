@@ -424,7 +424,14 @@ function spawnFfmpeg(channel, codec, profile) {
   if (isDirect) {
     args = [
       '-hide_banner', '-loglevel', 'warning',
-      '-probesize', '500k', '-analyzeduration', '1000000',
+      // ATSC 3.0 ("NextGen TV") channels carry AC-4 audio, which ffmpeg
+      // cannot determine channel count/sample rate for within the default
+      // 500k/1s budget used for ordinary MPEG2/AC3 channels - the whole
+      // -c copy remux fails outright ("Could not write header: Invalid
+      // argument") without a larger probe window. Confirmed via manual
+      // ffprobe/ffmpeg testing against a real ATSC 3.0 channel (see
+      // CHANGELOG). Only applied to direct mode for now.
+      '-probesize', '8M', '-analyzeduration', '8000000',
       '-i', sourceUrl,
       '-map', '0:v:0', '-map', '0:a:0',
       '-c', 'copy',
