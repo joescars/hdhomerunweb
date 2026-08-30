@@ -1,19 +1,15 @@
-<%- include('_header', { title: 'Guide' }) %>
+<%- include('_client_header', { title: 'TV Guide' }) %>
 
-<div class="d-flex align-items-center mb-3">
-  <h1 class="h4 mb-0 flex-grow-1">TV Guide</h1>
-  <a href="/guide/grid" class="btn btn-outline-secondary btn-sm">Grid view</a>
-</div>
-
-<div class="d-flex align-items-center flex-wrap gap-2 mb-2">
+<div class="d-flex align-items-center flex-wrap gap-2 mb-3">
   <div class="btn-group flex-wrap" role="group" aria-label="Guide filters">
     <input type="checkbox" class="btn-check" id="guide-filter-favorites" autocomplete="off">
-    <label class="btn btn-outline-warning btn-sm" for="guide-filter-favorites"><i class="bi bi-star-fill me-1"></i>Favorites</label>
+    <label class="btn btn-outline-warning btn-sm guide-filter-pill" for="guide-filter-favorites"><i class="bi bi-star-fill me-1"></i>Favorites</label>
 
     <input type="checkbox" class="btn-check" id="guide-filter-show-hidden" autocomplete="off">
-    <label class="btn btn-outline-secondary btn-sm" for="guide-filter-show-hidden">Show Hidden</label>
+    <label class="btn btn-outline-secondary btn-sm guide-filter-pill" for="guide-filter-show-hidden">Show Hidden</label>
   </div>
   <span class="text-body-secondary small ms-auto" id="guide-channel-count"></span>
+  <a href="/guide/grid" class="icon-link" title="Grid view" aria-label="Grid view"><i class="bi bi-grid-3x3-gap"></i></a>
 </div>
 
 <div id="guide-content"
@@ -60,6 +56,39 @@
     if (guideEmptyEl) {
       guideEmptyEl.style.display = (items.length > 0 && visible === 0) ? '' : 'none';
     }
+  }
+
+  // Same prewarm-then-navigate pattern as the desktop grid view: pick a
+  // quality profile from the connection, fire the stream start request
+  // immediately, then navigate shortly after regardless (so the transcode
+  // is already spinning up server-side by the time /watch loads instead of
+  // starting cold once the page arrives).
+  function chooseQualityProfile() {
+    var connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!connection) return 'medium';
+    if (connection.saveData) return 'low';
+    var effectiveType = connection.effectiveType || '';
+    if (effectiveType === 'slow-2g' || effectiveType === '2g' || effectiveType === '3g') return 'low';
+    if (typeof connection.downlink === 'number' && connection.downlink >= 8) return 'high';
+    if (typeof connection.downlink === 'number' && connection.downlink <= 2.5) return 'low';
+    return 'medium';
+  }
+
+  function watchChannel(channel) {
+    var profile = chooseQualityProfile();
+    var encodedChannel = encodeURIComponent(channel);
+    var destination = '/watch/' + encodedChannel + '?quality=' + encodeURIComponent(profile);
+    var startUrl = '/stream/' + encodedChannel + '/h264/' + encodeURIComponent(profile) + '/start';
+    var navigated = false;
+
+    function navigateNow() {
+      if (navigated) return;
+      navigated = true;
+      window.location.href = destination;
+    }
+
+    setTimeout(navigateNow, 140);
+    fetch(startUrl, { method: 'POST' }).catch(function () {}).finally(navigateNow);
   }
 
   if (guideShowHiddenCheck) {

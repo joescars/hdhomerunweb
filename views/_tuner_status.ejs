@@ -1,4 +1,4 @@
-<div id="tuner-status" hx-get="/status/fragment" hx-trigger="load delay:3s" hx-swap="outerHTML">
+<div id="tuner-status" hx-get="/admin/status/fragment" hx-trigger="load delay:3s" hx-swap="outerHTML">
   <% if (error) { %>
     <div class="alert alert-danger">Could not read tuner status: <%= error %></div>
   <% } else if (!tuners.length) { %>

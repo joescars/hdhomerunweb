@@ -1,6 +1,9 @@
-<%- include('_header', { title: 'Home' }) %>
+<%- include('_header', { title: 'Admin' }) %>
 
-<h1 class="h4 mb-3">System Menu</h1>
+<div class="d-flex align-items-center mb-3">
+  <h1 class="h4 mb-0 flex-grow-1">Admin</h1>
+  <a href="/" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i>Back to TV Guide</a>
+</div>
 
 <% if (error) { %>
   <div class="alert alert-danger">Could not reach device at <strong><%= host %></strong>: <%= error %></div>
@@ -20,25 +23,19 @@
 
 <div class="row row-cols-3 g-2">
   <div class="col">
-    <a class="card text-center text-decoration-none py-4" href="/guide/grid">
-      <div class="fs-2">📋</div>
-      <div class="small mt-1">TV Guide</div>
-    </a>
-  </div>
-  <div class="col">
-    <a class="card text-center text-decoration-none py-4" href="/channels">
+    <a class="card text-center text-decoration-none py-4" href="/admin/channels">
       <div class="fs-2">📺</div>
       <div class="small mt-1">Channel Lineup</div>
     </a>
   </div>
   <div class="col">
-    <a class="card text-center text-decoration-none py-4" href="/scan">
+    <a class="card text-center text-decoration-none py-4" href="/admin/scan">
       <div class="fs-2">🔍</div>
       <div class="small mt-1">Detect Channels</div>
     </a>
   </div>
   <div class="col">
-    <a class="card text-center text-decoration-none py-4" href="/status">
+    <a class="card text-center text-decoration-none py-4" href="/admin/status">
       <div class="fs-2">📶</div>
       <div class="small mt-1">System Status</div>
     </a>

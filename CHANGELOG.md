@@ -4,6 +4,79 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-29
 
+### Added: LunaTV mobile client, admin pages moved to /admin
+
+The web app was one undifferentiated set of pages - TV Guide sitting in the
+same nav bar as Channel Lineup/Scan/Status, all in plain Bootstrap dark
+theme. Split into two experiences: a new LunaTV-branded mobile-first client
+(Guide + Watch, now the default landing page) and an admin area for
+device setup/management, moved under `/admin` but otherwise functionally
+unchanged.
+
+**Routing** (`server.js`, `src/routes/guide.js`):
+- `index.js`/`channels.js`/`scan.js`/`status.js` now mounted at `/admin`
+  (`app.use('/admin', ...)`) instead of the root - internal route paths
+  inside those files didn't need to change, Express prefixes them
+  automatically. `/channels`, `/scan`, `/status` (old paths) now 404 by
+  design; everything lives under `/admin/*`.
+- `guide.js`'s handler is now registered on both `/` and `/guide` (same
+  function, `renderGuideHome`) - the guide is the new front door, `/guide`
+  kept as an alias.
+- All internal `hx-get`/`hx-post`/`href` references in admin views
+  (`_channel_row.ejs`, `_channel_rows.ejs`, `_scan_status.ejs`,
+  `_tuner_status.ejs`, `channels.ejs`) updated to the new `/admin/*` paths.
+- `index.ejs` (now the `/admin` landing page): dropped the "TV Guide" tile
+  (that's the whole app now, not an admin function) and added a "← Back to
+  TV Guide" link back to `/`.
+
+**New LunaTV branding for web** (reusing the same source art as the Roku
+app's icons/splash, for a consistent identity across both clients):
+- `public/images/logo.png` - transparent horizontal logo lockup, used in
+  the new client header.
+- `public/apple-touch-icon.png` + `public/images/favicon-*.png` (16/32/48/
+  192/512) - iOS "Add to Home Screen" now gets a real icon instead of the
+  generic default, which matters since the mobile web app is a legitimate
+  no-App-Store way to get LunaTV on an iPhone home screen today.
+- New `views/_client_header.ejs`: a separate page shell from the existing
+  `_header.ejs` (kept for admin pages) - dark-only (no light/dark toggle,
+  matching the Roku app's design - a lot of streaming apps are dark-only
+  and it simplified the palette work), LunaTV logo instead of a nav bar,
+  small gear icon linking to `/admin` instead of a full nav (the client
+  experience shouldn't expose admin concerns at all).
+- New `public/css/client.css`: LunaTV's dark navy/blue palette
+  (`#0a1428`/`#38bdf8`, matching the Roku app's `0x0A1428`/`0x38BDF8`)
+  as CSS custom-property overrides scoped to `body.client-theme`, so admin
+  pages keep plain Bootstrap dark/light untouched.
+
+**Mobile guide redesign** (`views/guide.ejs`, `views/_guide_accordion.ejs`):
+- Found and fixed a real gap: the mobile accordion guide had **no way to
+  actually start watching a channel** - only the desktop grid view
+  (`guide-grid.ejs`) linked to `/watch/:channel`. Tapping a channel in the
+  mobile guide just expanded/collapsed program details with no path to
+  playback at all.
+- Redesigned each channel row as a card: channel number, name, and a
+  "NOW: <title>" line (tap to expand for full upcoming-program details,
+  same data as before) alongside a dedicated large circular Watch button
+  (`.btn-watch`) that's always present and one tap away - no expand step
+  required to start watching.
+- The Watch button reuses the same prewarm-then-navigate pattern already
+  used by the desktop grid (`chooseQualityProfile()` from
+  `navigator.connection`, fire `/stream/.../start` immediately, navigate to
+  `/watch/:channel` ~140ms later regardless) so the transcode is already
+  spinning up server-side by the time the watch page loads.
+- Filter pills (Favorites/Show Hidden) and channel-count text restyled to
+  match the new theme; favoriting itself intentionally stays on the admin
+  Channels page only (per discussion - starring is a setup-time action, not
+  an everyday one for this use case).
+- `guide-grid.ejs` (desktop grid) and `watch.ejs` also switched to the new
+  `_client_header.ejs` for consistent branding, otherwise functionally
+  unchanged - the desktop grid's own layout/interaction wasn't in scope for
+  this mobile-focused pass.
+
+Verified via headless Chrome at a 390×844 (iPhone-sized) viewport: guide,
+watch, admin, and admin/channels all render correctly with the new theme
+and working navigation.
+
 ### Added: show thumbnail in the Roku live preview box (instead of black while loading)
 
 Follow-up to the live-preview feature - the preview box showed solid black

@@ -3,50 +3,54 @@
 <% } else if (!channels.length) { %>
   <div class="alert alert-secondary">No guide data available.</div>
 <% } else { %>
-  <div class="accordion" id="guideAccordion">
-    <% channels.forEach(function(ch, i) {
-         var airings = (ch.Guide || []).filter(function(a) { return a.EndTime > now; }).slice(0, 6);
-         var current = airings.find(function(a) { return a.StartTime <= now && now < a.EndTime; });
-    %>
-      <div class="accordion-item guide-item"
-           data-favorite="<%= ch.Favorite ? 1 : 0 %>"
-           data-hidden="<%= ch.Hidden ? 1 : 0 %>">
-        <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>">
-            <span class="badge text-bg-primary me-2 flex-shrink-0"><%= ch.GuideNumber %></span>
-            <span class="text-truncate flex-grow-1">
-              <%= ch.GuideName %>
-              <% if (current) { %><span class="text-body-secondary"> — <%= current.Title %></span><% } %>
-            </span>
-          </button>
-        </h2>
-        <div id="guide-<%= i %>" class="accordion-collapse collapse" data-bs-parent="#guideAccordion">
-          <div class="accordion-body">
-            <% if (!airings.length) { %>
-              <p class="text-body-secondary small mb-0">No upcoming guide data for this channel.</p>
-            <% } %>
-            <% airings.forEach(function(a) { %>
-              <div class="d-flex gap-2 mb-3">
-                <% if (a.ImageURL) { %>
-                  <img src="<%= a.ImageURL %>" alt="" width="60" height="90" class="rounded flex-shrink-0" style="object-fit: cover;" loading="lazy">
-                <% } %>
-                <div class="flex-grow-1">
-                  <div class="d-flex align-items-center gap-2">
-                    <% if (a.StartTime <= now && now < a.EndTime) { %><span class="badge text-bg-danger">NOW</span><% } %>
-                    <strong><%= a.Title %></strong>
-                  </div>
-                  <div class="small text-body-secondary">
-                    <span class="airing-time" data-start="<%= a.StartTime %>" data-end="<%= a.EndTime %>"></span>
-                    <% if (a.EpisodeNumber) { %> · <%= a.EpisodeNumber %><% } %>
-                    <% if (a.EpisodeTitle) { %> · <%= a.EpisodeTitle %><% } %>
-                  </div>
-                  <% if (a.Synopsis) { %><div class="small mt-1"><%= a.Synopsis %></div><% } %>
-                </div>
-              </div>
-            <% }); %>
-          </div>
+  <% channels.forEach(function(ch, i) {
+       var airings = (ch.Guide || []).filter(function(a) { return a.EndTime > now; }).slice(0, 6);
+       var current = airings.find(function(a) { return a.StartTime <= now && now < a.EndTime; });
+  %>
+    <div class="guide-channel guide-item"
+         data-favorite="<%= ch.Favorite ? 1 : 0 %>"
+         data-hidden="<%= ch.Hidden ? 1 : 0 %>">
+      <div class="guide-channel-header">
+        <span class="guide-channel-num"><%= ch.GuideNumber %></span>
+        <div class="guide-channel-info" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>" role="button" aria-expanded="false" aria-controls="guide-<%= i %>">
+          <div class="guide-channel-name text-truncate"><%= ch.GuideName %></div>
+          <% if (current) { %>
+            <div class="guide-channel-now"><span class="guide-badge-now">NOW</span> <%= current.Title %></div>
+          <% } else { %>
+            <div class="guide-channel-now text-body-secondary">No current program info</div>
+          <% } %>
         </div>
+        <button type="button" class="btn-watch" onclick="watchChannel('<%= ch.GuideNumber %>')" title="Watch live" aria-label="Watch <%= ch.GuideName %> live">
+          <i class="bi bi-play-fill"></i>
+        </button>
+        <button type="button" class="guide-expand-btn" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>" aria-expanded="false" aria-controls="guide-<%= i %>" aria-label="Show upcoming programs for <%= ch.GuideName %>">
+          <i class="bi bi-chevron-down"></i>
+        </button>
       </div>
-    <% }); %>
-  </div>
+      <div id="guide-<%= i %>" class="collapse guide-channel-body">
+        <% if (!airings.length) { %>
+          <p class="text-body-secondary small mb-0">No upcoming guide data for this channel.</p>
+        <% } %>
+        <% airings.forEach(function(a) { %>
+          <div class="d-flex gap-2 mb-3">
+            <% if (a.ImageURL) { %>
+              <img src="<%= a.ImageURL %>" alt="" width="60" height="90" class="rounded flex-shrink-0" style="object-fit: cover;" loading="lazy">
+            <% } %>
+            <div class="flex-grow-1 min-width-0">
+              <div class="d-flex align-items-center gap-2">
+                <% if (a.StartTime <= now && now < a.EndTime) { %><span class="guide-badge-now">NOW</span><% } %>
+                <strong><%= a.Title %></strong>
+              </div>
+              <div class="small text-body-secondary">
+                <span class="airing-time" data-start="<%= a.StartTime %>" data-end="<%= a.EndTime %>"></span>
+                <% if (a.EpisodeNumber) { %> · <%= a.EpisodeNumber %><% } %>
+                <% if (a.EpisodeTitle) { %> · <%= a.EpisodeTitle %><% } %>
+              </div>
+              <% if (a.Synopsis) { %><div class="small mt-1"><%= a.Synopsis %></div><% } %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  <% }); %>
 <% } %>

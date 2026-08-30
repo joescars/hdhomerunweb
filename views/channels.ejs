@@ -5,7 +5,7 @@
 <% if (error) { %>
   <div class="alert alert-danger">Could not load channel lineup: <%= error %></div>
 <% } else if (!channels.length) { %>
-  <div class="alert alert-secondary">No channels found. Try running a <a href="/scan">channel scan</a>.</div>
+  <div class="alert alert-secondary">No channels found. Try running a <a href="/admin/scan">channel scan</a>.</div>
 <% } else { %>
   <div class="d-flex align-items-center flex-wrap gap-2 mb-2">
     <div class="btn-group flex-wrap" role="group" aria-label="Channel filters">

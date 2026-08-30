@@ -1,19 +1,28 @@
-# hdhomerun-web
+# LunaTV (hdhomerun-web)
 
-A mobile-responsive web UI for managing your [HDHomeRun](https://www.silicondust.com/) device, meant as a friendlier alternative to the device's built-in web interface. It talks to your HDHomeRun over its local HTTP API and runs as a small self-hosted Docker container.
+A mobile-first web client for watching and browsing live TV off your [HDHomeRun](https://www.silicondust.com/) tuner, plus an admin panel for device setup/management that's a friendlier alternative to the device's own built-in web interface. It talks to your HDHomeRun over its local HTTP API and runs as a small self-hosted Docker container.
 
 This repo also includes a sideloadable [Roku client](roku/) for watching live TV on your TV, powered by the same server.
 
 ## Features
 
-- **System Menu** (`/`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
-- **TV Guide** — live program guide (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required. Two views: a cable-style channel × time grid (`/guide/grid`) with a live "now" line — tap any program to start watching — and a per-channel list (`/guide`).
-- **Watch Live TV** (`/watch/:channel`) - plays a channel directly in the browser. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js). (The Roku client gets an HEVC encode instead - see [roku/README.md](roku/README.md).) Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
-- **Channel Lineup** (`/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality and codec info. Toggle filters for Favorites, HD, and Show Hidden, plus one-tap buttons to favorite or hide any channel (synced back to the device itself).
-- **Detect Channels** (`/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
-- **System Status** (`/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
-- **Light/dark mode** toggle in the navbar, remembered across visits.
-- **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server: now/next channel guide and live playback on your TV. See [roku/README.md](roku/README.md) for setup and sideloading instructions.
+### Client (mobile-first, the default landing page)
+
+- **TV Guide** (`/`, also `/guide`) — live program guide (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required. A large one-tap Watch button per channel starts playback immediately; tap the row itself to expand upcoming programs. A denser cable-style channel × time grid with a live "now" line is also available at `/guide/grid` for desktop use.
+- **Watch Live TV** (`/watch/:channel`) - plays a channel directly in the browser. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js), including closed captions. Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
+- Add the site to your iOS/Android home screen (`Share → Add to Home Screen`) for an app-like icon and full-screen launch — no App Store needed.
+
+### Admin (`/admin`, linked via the small gear icon in the client header)
+
+- **System Menu** (`/admin`) — device info at a glance: friendly name, model, firmware version, device ID, tuner count. Includes a link to the device's own system log.
+- **Channel Lineup** (`/admin/channels`) — full channel list including hidden and unsubscribed channels, with per-channel signal strength/quality and codec info. Toggle filters for Favorites, HD, and Show Hidden, plus one-tap buttons to favorite or hide any channel (synced back to the device itself).
+- **Detect Channels** (`/admin/scan`) — start or abort a channel scan, with a source selector (e.g. Antenna/Cable) and live progress.
+- **System Status** (`/admin/status`) — per-tuner status: currently tuned channel, signal strength/quality meters, and network rate (Mbit/s), auto-refreshing.
+- **Light/dark mode** toggle in the admin navbar, remembered across visits. (The client pages are dark-only, matching the Roku app's branding.)
+
+### Roku
+
+- **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server: live channel preview and recently-watched pinning in the guide, now/next info overlay during playback, closed captions, and an experimental no-transcode "Direct" streaming mode. See [roku/README.md](roku/README.md) for setup and sideloading instructions.
 
 ## Screenshots
 

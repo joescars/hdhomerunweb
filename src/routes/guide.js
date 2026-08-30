@@ -6,10 +6,15 @@ const cache = require('../cache');
 const router = express.Router();
 const GUIDE_TTL_MS = Number(process.env.GUIDE_CACHE_TTL_MS || 30000);
 
-router.get('/guide', async (req, res) => {
+// The mobile guide is the app's primary landing experience - "/" and
+// "/guide" render the same thing, so bookmarks/links to either work.
+function renderGuideHome(req, res) {
   res.set('Cache-Control', 'private, max-age=10, stale-while-revalidate=20');
   res.render('guide', { now: Math.floor(Date.now() / 1000) });
-});
+}
+
+router.get('/', renderGuideHome);
+router.get('/guide', renderGuideHome);
 
 router.get('/guide/fragment', async (req, res) => {
   res.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=30');

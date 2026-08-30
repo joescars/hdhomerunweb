@@ -31,10 +31,14 @@ app.use(express.urlencoded({ extended: false }));
 app.locals.deviceSystemLogUrl = `http://${hdhr.HOST}/log.html`;
 app.locals.assetVersion = ASSET_VERSION;
 
-app.use(indexRoutes);
-app.use(channelsRoutes);
-app.use(scanRoutes);
-app.use(statusRoutes);
+// The mobile guide (guideRoutes) is the primary client experience, mounted
+// at the root. Device-setup/management pages live under /admin - they're
+// not gone, just no longer the front door (see CHANGELOG for the LunaTV
+// mobile client redesign).
+app.use('/admin', indexRoutes);
+app.use('/admin', channelsRoutes);
+app.use('/admin', scanRoutes);
+app.use('/admin', statusRoutes);
 app.use(guideRoutes);
 app.use(watchRoutes);
 app.use(apiRoutes);

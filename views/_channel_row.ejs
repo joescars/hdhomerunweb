@@ -25,13 +25,13 @@
   <span class="channel-actions">
     <button type="button" class="icon-btn <%= ch.Favorite ? 'is-active icon-btn-fav' : '' %>"
             title="<%= ch.Favorite ? 'Unfavorite' : 'Favorite' %>"
-            hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Favorite ? '-' : '+') %>"
+            hx-post="/admin/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Favorite ? '-' : '+') %>"
             hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">
       <i class="bi <%= ch.Favorite ? 'bi-star-fill' : 'bi-star' %>"></i>
     </button>
     <button type="button" class="icon-btn <%= ch.Enabled === 0 ? 'is-active icon-btn-hidden' : '' %>"
             title="<%= ch.Enabled === 0 ? 'Unhide' : 'Hide' %>"
-            hx-post="/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Enabled === 0 ? '-' : 'x') %>"
+            hx-post="/admin/channels/flag?guide=<%= encodeURIComponent(ch.GuideNumber) %>&mode=<%= encodeURIComponent(ch.Enabled === 0 ? '-' : 'x') %>"
             hx-target="#channel-<%= ch.GuideNumber.replace('.', '-') %>" hx-swap="outerHTML">
       <i class="bi <%= ch.Enabled === 0 ? 'bi-eye-slash-fill' : 'bi-eye-slash' %>"></i>
     </button>
