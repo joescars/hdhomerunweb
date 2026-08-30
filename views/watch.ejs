@@ -6,6 +6,10 @@
     <div class="watch-fullbleed-overlay">
       <div id="player-status" class="small"><%= channelName || channel %> &middot; Tuning&hellip;</div>
       <div id="captions-status" class="small">Captions: checking stream...</div>
+      <% if (recordEnabled) { %>
+        <button type="button" id="record-btn" class="btn btn-sm btn-outline-danger mt-1"><i class="bi bi-record-circle me-1"></i>Record</button>
+        <div id="record-status" class="small"></div>
+      <% } %>
     </div>
   </div>
 <% } else { %>
@@ -23,6 +27,10 @@
 
   <div id="player-status" class="text-body-secondary small">Tuning&hellip; usually just a few seconds.</div>
   <div id="captions-status" class="text-body-secondary small">Captions: checking stream...</div>
+  <% if (recordEnabled) { %>
+    <button type="button" id="record-btn" class="btn btn-sm btn-outline-danger mt-2"><i class="bi bi-record-circle me-1"></i>Record this airing</button>
+    <div id="record-status" class="text-body-secondary small mt-1"></div>
+  <% } %>
 <% } %>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js?v=<%= assetVersion %>"></script>
@@ -35,6 +43,8 @@
     var video = document.getElementById('player');
     var status = document.getElementById('player-status');
     var captionsStatus = document.getElementById('captions-status');
+    var recordBtn = document.getElementById('record-btn');
+    var recordStatus = document.getElementById('record-status');
     var profile = chooseProfile();
     var streamBase = '/stream/' + encodeURIComponent(channel) + '/h264/' + encodeURIComponent(profile) + '/';
     var src = streamBase + 'stream.m3u8';
@@ -271,6 +281,24 @@
           }
           setTimeout(function () { pollUntilReady(startedAt, failures); }, POLL_INTERVAL_MS);
         });
+    }
+
+    if (recordBtn) {
+      recordBtn.addEventListener('click', function () {
+        recordBtn.disabled = true;
+        recordStatus.textContent = 'Scheduling recording…';
+        fetch('/watch/' + encodeURIComponent(channel) + '/record', { method: 'POST' })
+          .then(function (r) { return r.json().then(function (body) { return { ok: r.ok, body: body }; }); })
+          .then(function (result) {
+            if (!result.ok) throw new Error(result.body && result.body.error ? result.body.error : 'Failed to schedule recording');
+            var title = result.body.title + (result.body.episodeTitle ? ' - ' + result.body.episodeTitle : '');
+            recordStatus.textContent = 'Recording: ' + title;
+          })
+          .catch(function (err) {
+            recordBtn.disabled = false;
+            recordStatus.textContent = 'Could not start recording: ' + err.message;
+          });
+      });
     }
 
     setStatus('Starting stream (' + profile + ' quality)…');

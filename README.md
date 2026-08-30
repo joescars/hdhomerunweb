@@ -10,6 +10,7 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 
 - **TV Guide** (`/`, also `/guide`) — live program guide (titles, times, episode info, synopses, artwork) via Silicondust's cloud Guide API, authenticated using the device's own `DeviceAuth` token. No subscription required. A large one-tap Watch button per channel starts playback immediately; tap the row itself to expand upcoming programs. A denser cable-style channel × time grid with a live "now" line is also available at `/guide/grid` for desktop use.
 - **Watch Live TV** — tapping Watch opens the video in a full-screen overlay right on the guide page, not a separate page load; closing it (✕, Escape, or the device Back gesture) drops you back exactly where you were, guide scroll position and filters intact. The HDHomeRun outputs raw MPEG2/AC3 that browsers can't decode natively, so the app transcodes it on the fly to H.264/AAC HLS using Intel Quick Sync (QSV) hardware acceleration, and plays it back with [hls.js](https://github.com/video-dev/hls.js) (native HLS on iOS Safari), including closed captions, with autoplay (falling back to muted autoplay if the browser blocks sound). Typically starts playing within a few seconds; tuner sessions are released automatically ~20s after you stop watching.
+- **Record this airing** — an optional "Record" button on the watch screen that schedules a one-off recording of whatever's currently playing. Requires a separately-run [HDHomeRun RECORD](https://info.hdhomerun.com/info/dvr) engine (Silicondust's DVR software — not something this app manages or containers) reachable via `RECORD_ENGINE_HOST`; hidden entirely if that's not configured. See [Configuration](#configuration) below.
 - Add the site to your iOS/Android home screen (`Share → Add to Home Screen`) for an app-like icon and full-screen launch — no App Store needed.
 
 ### Admin (`/admin`, linked via the small gear icon in the client header)
@@ -79,6 +80,8 @@ cp .env.example .env
 | `STREAM_DECODE_MODE` | `qsv`         | Decode mode for live transcode input: `qsv` (default) or `sw` (software decode + hardware encode). Useful for CC A/B testing. |
 | `WEBVTT_SIDECAR_MODE` | `on`         | Enables experimental WebVTT sidecar extraction for browser captions. Set `off` to disable sidecar track generation. |
 | `SOURCE_CAPTION_PROBE` | `off`       | Enables raw-input ffprobe caption probing in diagnostics. Keep `off` unless actively debugging caption ingest. |
+| `RECORD_ENGINE_HOST` | —          | Optional. LAN IP/hostname of a separately-run [HDHomeRun RECORD](https://info.hdhomerun.com/info/dvr) engine — enables the "Record this airing" button. Leave unset to disable. Must be a LAN address, not `localhost`, even if the engine runs on the same machine — same reasoning as `HDHOMERUN_HOST` above. |
+| `RECORD_ENGINE_PORT` | `37899`     | Port the RECORD engine's local HTTP API listens on. |
 
 You can find your device's current IP via its own web UI, your router's DHCP client list, or `avahi-resolve -n hdhomerun.local` on a machine with mDNS support. A DHCP reservation for the device is recommended so the IP doesn't change.
 

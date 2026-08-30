@@ -23,6 +23,16 @@ async function getGuide({ duration = 6 } = {}) {
   }
 }
 
+async function getCurrentProgram(channel) {
+  const guideChannels = await getGuide({ duration: 1 });
+  const ch = (guideChannels || []).find((c) => c.GuideNumber === channel);
+  if (!ch) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const program = (ch.Guide || []).find((p) => p.StartTime <= now && now < p.EndTime);
+  return program || null;
+}
+
 function indexLineupByNumber(lineup) {
   const map = new Map();
   (lineup || []).forEach((entry) => {
@@ -45,4 +55,4 @@ function mergeFavorites(guideChannels, lineup) {
   });
 }
 
-module.exports = { getGuide, indexLineupByNumber, mergeFavorites };
+module.exports = { getGuide, getCurrentProgram, indexLineupByNumber, mergeFavorites };

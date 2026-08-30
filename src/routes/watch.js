@@ -4,6 +4,8 @@ const path = require('path');
 
 const stream = require('../stream');
 const hdhr = require('../hdhomerun');
+const guide = require('../guide');
+const record = require('../hdhomerunRecord');
 
 const router = express.Router();
 
@@ -60,7 +62,33 @@ router.get('/watch/:channel', async (req, res) => {
     // (see guide.ejs) rather than as a standalone page - renders without
     // the client header/chrome so the video is truly full-bleed.
     embedded: req.query.embedded === '1',
+    recordEnabled: record.isConfigured(),
   });
+});
+
+// Schedules a recording of whatever's currently airing on this channel via
+// the local HDHomeRun RECORD engine (RECORD_ENGINE_HOST) - see
+// src/hdhomerunRecord.js. Only available when that env var is set; the
+// engine is a separate optional process, not something this app manages.
+router.post('/watch/:channel/record', async (req, res) => {
+  const { channel } = req.params;
+  if (!CHANNEL_RE.test(channel)) return res.status(400).json({ error: 'Invalid channel' });
+  if (!record.isConfigured()) return res.status(501).json({ error: 'Recording is not configured on this server' });
+
+  try {
+    const program = await guide.getCurrentProgram(channel);
+    if (!program) return res.status(404).json({ error: 'No current program found for this channel' });
+
+    await record.recordCurrentAiring({
+      seriesId: program.SeriesID,
+      channel,
+      startTime: program.StartTime,
+    });
+
+    res.json({ recording: true, title: program.Title, episodeTitle: program.EpisodeTitle || null });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
 });
 
 // :codec picks the ffmpeg encoder - h264 for browsers (hls.js's TS demuxer

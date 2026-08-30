@@ -4,6 +4,45 @@ All notable changes to this project are documented in this file.
 
 ## 2026-08-30
 
+### Added: "Record this airing" button, integrating with a separately-run HDHomeRun RECORD engine
+
+Investigated whether the HDHomeRun HTTP API exposes any DVR functionality
+(pause live TV, record what's currently playing). It doesn't - that API
+(`src/hdhomerun.js`) is tuner-only. DVR is a completely separate system:
+Silicondust's "HDHomeRun RECORD" engine, a distinct process with its own
+local storage and HTTP API, not something this repo runs or manages.
+
+Confirmed the user already runs this engine as a native Linux binary on
+the same host as the Docker container. Verified end-to-end against the
+real engine (`http://<host>:37899/discover.json`) and Silicondust's cloud
+`api.hdhomerun.com/api/recording_rules` API using the existing tuner
+`DeviceAuth` token before writing any code.
+
+Added `src/hdhomerunRecord.js` and a "Record this airing" button on
+`views/watch.ejs` (`POST /watch/:channel/record` in `src/routes/watch.js`),
+gated on the new `RECORD_ENGINE_HOST` env var (unset = feature hidden
+entirely). There's no "record now" API verb - it works the same way
+Silicondust's own apps do it: create a single-airing (`DateTimeOnly` +
+`ChannelOnly`) recording rule using the currently-airing program's own
+`SeriesID`/`StartTime` (new `guide.getCurrentProgram()` helper), then poke
+the local engine's `/recording_events.post?sync` so it picks up the rule
+immediately instead of waiting for its next periodic poll.
+
+One real gotcha found only by testing against the live engine: `Cmd=add`
+silently returns a bare `400 Bad Request` over GET with no useful body -
+the docs don't mention a required method, but it turns out to need POST
+(the read-only list call works fine as GET). Confirmed the full pipeline
+for real: the test call actually created a rule, the engine picked it up
+via the poke and started recording within ~3s, and deleting the rule
+afterward correctly stopped it from appearing in the pending schedule
+(though, expectedly, it didn't abort the recording already in progress).
+
+Not attempted in this pass: pause/rewind of live TV. That's a much bigger
+change - it requires re-pointing `src/stream.js`'s transcode source at the
+RECORD engine's buffered stream (`<engine>/auto/v<channel>` with HTTP
+Range-header seeking) instead of the raw tuner on port 5004, since our
+current low-latency HLS window has no real backing buffer to rewind into.
+
 ### Fixed: iOS Safari watch overlay - invisible on tap, then required a manual play tap
 
 Two separate bugs found while chasing a "Watch button does nothing on iOS
