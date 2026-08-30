@@ -277,6 +277,17 @@ sub onInfoHideTimerFire(event as object)
     hideChannelInfo()
 end sub
 
+' Bound to both OK and the * (Options) button during normal playback -
+' OK is the more natural "what am I watching" button for most users, kept
+' Options bound too since it was already documented/expected there.
+sub toggleChannelInfo()
+    if m.channelInfoOverlay <> invalid and m.channelInfoOverlay.visible = true
+        hideChannelInfo()
+    else
+        showChannelInfo()
+    end if
+end sub
+
 sub onVideoStateChange(event as object)
     state = event.getData()
 
@@ -504,11 +515,7 @@ function onKeyEvent(key as string, press as boolean) as boolean
         return true
     end if
     if press and key = "options"
-        if m.channelInfoOverlay <> invalid and m.channelInfoOverlay.visible = true
-            hideChannelInfo()
-        else
-            showChannelInfo()
-        end if
+        toggleChannelInfo()
         return true
     end if
     if press and key = "rewind"
@@ -519,8 +526,12 @@ function onKeyEvent(key as string, press as boolean) as boolean
         changeChannelBy(1)
         return true
     end if
-    if press and key = "OK" and m.failed = true
-        startTuning()
+    if press and key = "OK"
+        if m.failed = true
+            startTuning()
+        else
+            toggleChannelInfo()
+        end if
         return true
     end if
     if press and key = "back"

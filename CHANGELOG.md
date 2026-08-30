@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-08-30
+
+### Added: OK button shows the now/next info bar during playback
+
+Follow-up to the now/next info overlay - it was only reachable via the `*`
+(Options) button, which is less discoverable than OK for "what am I
+watching" during normal playback (OK previously did nothing during active
+playback; it was only bound for retry-after-failure).
+
+- `roku/components/PlayerScreen.brs`: factored the show/hide toggle into a
+  new `toggleChannelInfo()`, now bound to both OK and `*` during normal
+  playback. OK still retries tuning when in the failed state (`m.failed =
+  true`), same as before - the new behavior only applies otherwise.
+- Bumped Roku `build_version` to 50. Verified on-device: tuned a channel,
+  waited past the 5s auto-hide, pressed OK - info bar reappeared
+  (`3.5 Oxygen`, `Now: The Real Murders of Atlanta - Lost & Found`, `Next:
+  Dateline: Secrets Uncovered`) with playback and captions uninterrupted.
+
 ## 2026-08-29
 
 ### Added: LunaTV mobile client, admin pages moved to /admin
