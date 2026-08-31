@@ -12,10 +12,13 @@
          data-hidden="<%= ch.Hidden ? 1 : 0 %>">
       <div class="guide-channel-header">
         <span class="guide-channel-num"><%= ch.GuideNumber %></span>
+        <% if (current && current.ImageURL) { %>
+          <img src="<%= current.ImageURL %>" alt="" class="guide-channel-thumb flex-shrink-0" loading="lazy" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>" role="button" aria-expanded="false" aria-controls="guide-<%= i %>">
+        <% } %>
         <div class="guide-channel-info" data-bs-toggle="collapse" data-bs-target="#guide-<%= i %>" role="button" aria-expanded="false" aria-controls="guide-<%= i %>">
           <div class="guide-channel-name text-truncate"><%= ch.GuideName %></div>
           <% if (current) { %>
-            <div class="guide-channel-now"><span class="guide-badge-now">NOW</span> <%= current.Title %></div>
+            <div class="guide-channel-now"><%= current.Title %></div>
           <% } else { %>
             <div class="guide-channel-now text-body-secondary">No current program info</div>
           <% } %>

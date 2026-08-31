@@ -52,6 +52,31 @@ body.client-theme-bare {
   pointer-events: none;
 }
 
+/* Floating record button for the embedded (mobile guide overlay) player.
+   Mirrors .watch-overlay-close's circular style, but sits top-left since
+   the parent page's close button already owns top-right - see
+   guide.ejs's watch-overlay. */
+.watch-record-btn {
+  position: fixed;
+  top: calc(0.6rem + env(safe-area-inset-top, 0px));
+  left: calc(0.6rem + env(safe-area-inset-left, 0px));
+  z-index: 1056;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: none;
+  background: rgba(10, 20, 40, 0.75);
+  color: #dc3545;
+  font-size: 1.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.watch-record-btn:disabled {
+  color: #9cb0c4;
+}
+
 /* The guide's full-screen watch overlay (parent page, not the iframe
    document) - see guide.ejs's openWatchOverlay()/closeWatchOverlay(). */
 .watch-overlay {
@@ -115,6 +140,23 @@ body.client-theme a.icon-link:hover {
   color: var(--bs-body-color);
 }
 
+body.client-theme button.icon-link {
+  border: none;
+  background: none;
+}
+
+body.client-theme button.icon-link.icon-btn-danger {
+  color: #dc3545;
+}
+
+body.client-theme button.icon-link.icon-btn-danger:hover {
+  background-color: var(--bs-tertiary-bg);
+}
+
+body.client-theme button.icon-link:disabled {
+  color: var(--bs-secondary-color);
+}
+
 /* Guide list ------------------------------------------------------------ */
 
 body.client-theme .guide-channel {
@@ -144,6 +186,14 @@ body.client-theme .guide-channel-num {
   font-weight: 700;
   font-size: 0.8rem;
   color: var(--bs-secondary-color);
+}
+
+body.client-theme .guide-channel-thumb {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 6px;
+  object-fit: cover;
+  cursor: pointer;
 }
 
 body.client-theme .guide-channel-info {

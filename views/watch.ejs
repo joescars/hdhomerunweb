@@ -3,11 +3,13 @@
 <% if (embedded) { %>
   <div class="watch-fullbleed">
     <video id="player" controls autoplay playsinline></video>
+    <% if (recordEnabled) { %>
+      <button type="button" id="record-btn" class="watch-record-btn" title="Record this airing" aria-label="Record this airing"><i class="bi bi-record-circle"></i></button>
+    <% } %>
     <div class="watch-fullbleed-overlay">
       <div id="player-status" class="small"><%= channelName || channel %> &middot; Tuning&hellip;</div>
       <div id="captions-status" class="small">Captions: checking stream...</div>
       <% if (recordEnabled) { %>
-        <button type="button" id="record-btn" class="btn btn-sm btn-outline-danger mt-1"><i class="bi bi-record-circle me-1"></i>Record</button>
         <div id="record-status" class="small"></div>
       <% } %>
     </div>
@@ -15,10 +17,13 @@
 <% } else { %>
   <div class="d-flex align-items-center mb-3">
     <a href="/" class="icon-link me-2" title="Back to guide" aria-label="Back to guide"><i class="bi bi-arrow-left"></i></a>
-    <h1 class="h5 mb-0">
+    <h1 class="h5 mb-0 flex-grow-1">
       <span class="badge text-bg-primary me-2"><%= channel %></span>
       <%= channelName || 'Live' %>
     </h1>
+    <% if (recordEnabled) { %>
+      <button type="button" id="record-btn" class="icon-link icon-btn-danger" title="Record this airing" aria-label="Record this airing"><i class="bi bi-record-circle"></i></button>
+    <% } %>
   </div>
 
   <div class="ratio ratio-16x9 bg-black rounded overflow-hidden mb-3">
@@ -28,7 +33,6 @@
   <div id="player-status" class="text-body-secondary small">Tuning&hellip; usually just a few seconds.</div>
   <div id="captions-status" class="text-body-secondary small">Captions: checking stream...</div>
   <% if (recordEnabled) { %>
-    <button type="button" id="record-btn" class="btn btn-sm btn-outline-danger mt-2"><i class="bi bi-record-circle me-1"></i>Record this airing</button>
     <div id="record-status" class="text-body-secondary small mt-1"></div>
   <% } %>
 <% } %>
