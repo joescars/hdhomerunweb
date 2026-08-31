@@ -30,7 +30,7 @@ router.post('/recordings/:id/delete', async (req, res) => {
   try {
     const recording = await record.getRecording(id);
     if (!recording) return res.status(404).send('Recording not found');
-    await record.deleteRecording(id);
+    await record.deleteRecording(recording);
     res.render('_recordings_list', { recordings: await record.getRecordings(), error: null });
   } catch (err) {
     res.status(502).send(err.message);
