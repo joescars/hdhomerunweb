@@ -1,0 +1,46 @@
+<%- include('_client_header', { title: recording.EpisodeTitle || recording.Title }) %>
+
+<div class="d-flex align-items-center mb-3">
+  <a href="/recordings" class="icon-link me-2" title="Back to recordings" aria-label="Back to recordings"><i class="bi bi-arrow-left"></i></a>
+  <h1 class="h6 mb-0 flex-grow-1 text-truncate"><%= recording.EpisodeTitle || recording.Title %></h1>
+</div>
+<div class="ratio ratio-16x9 bg-black rounded overflow-hidden mb-3"><video id="player" controls autoplay playsinline></video></div>
+<div id="player-status" class="text-body-secondary small">Preparing recording…</div>
+<% if (recording.Synopsis) { %><p class="small text-body-secondary mt-3 mb-0"><%= recording.Synopsis %></p><% } %>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js?v=<%= assetVersion %>"></script>
+<script>
+  (function () {
+    var id = <%- JSON.stringify(recording.id) %>;
+    var profile = 'medium';
+    var video = document.getElementById('player');
+    var status = document.getElementById('player-status');
+    var base = '/recordings/' + encodeURIComponent(id) + '/' + profile + '/';
+    var attempts = 0;
+
+    function setStatus(text) { status.textContent = text; }
+    function attach() {
+      var src = base + 'stream.m3u8';
+      if (window.Hls && Hls.isSupported()) {
+        var hls = new Hls();
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, function () { setStatus(''); video.play().catch(function () {}); });
+        hls.on(Hls.Events.ERROR, function (_, data) { if (data.fatal) setStatus('Playback failed: ' + data.details); });
+      } else {
+        video.src = src;
+        video.addEventListener('loadedmetadata', function () { setStatus(''); video.play().catch(function () {}); }, { once: true });
+      }
+    }
+    function waitForReady() {
+      fetch(base + 'ready', { cache: 'no-store' }).then(function (res) { return res.json(); }).then(function (state) {
+        if (state.ready) return attach();
+        if (state.error || attempts++ >= 60) return setStatus(state.error || 'Recording took too long to prepare.');
+        setTimeout(waitForReady, 500);
+      }).catch(function () { setTimeout(waitForReady, 500); });
+    }
+    fetch(base + 'start', { method: 'POST' }).then(waitForReady).catch(function () { setStatus('Unable to prepare recording.'); });
+  })();
+</script>
+
+<%- include('_footer') %>

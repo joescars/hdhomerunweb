@@ -1,0 +1,38 @@
+<% if (error) { %>
+  <div class="alert alert-warning mb-0"><%= error %></div>
+<% } else if (!recordings.length) { %>
+  <div class="alert alert-secondary mb-0">No completed recordings yet.</div>
+<% } else { %>
+  <div class="vstack gap-3">
+    <% recordings.forEach(function (show) { %>
+      <section class="card bg-body-tertiary border-secondary-subtle">
+        <div class="card-body">
+          <div class="d-flex gap-3">
+            <% if (show.ImageURL) { %><img src="<%= show.ImageURL %>" alt="" class="recording-poster"><% } %>
+            <div class="min-w-0">
+              <h2 class="h6 mb-1"><%= show.Title %></h2>
+              <div class="small text-body-secondary"><%= show.episodes.length %> recording<%= show.episodes.length === 1 ? '' : 's' %></div>
+            </div>
+          </div>
+          <div class="list-group list-group-flush mt-3">
+            <% show.episodes.forEach(function (recording) { %>
+              <div class="list-group-item bg-transparent px-0">
+                <div class="d-flex align-items-center gap-2">
+                  <a href="/recordings/<%= encodeURIComponent(recording.id) %>/watch" class="d-flex align-items-center gap-2 min-w-0 flex-grow-1 text-decoration-none text-reset">
+                    <i class="bi bi-play-circle-fill text-primary fs-4"></i>
+                    <div class="min-w-0 flex-grow-1">
+                      <div class="fw-semibold text-truncate"><%= recording.EpisodeTitle || recording.Title %></div>
+                      <div class="small text-body-secondary"><%= recording.ChannelNumber || '' %><%= recording.ChannelName ? ` · ${recording.ChannelName}` : '' %><%= recording.EpisodeNumber ? ` · ${recording.EpisodeNumber}` : '' %></div>
+                    </div>
+                  </a>
+                  <% if (recording.Resume) { %><span class="badge text-bg-secondary">Resume</span><% } %>
+                  <button type="button" class="btn btn-outline-danger btn-sm" hx-post="/recordings/<%= encodeURIComponent(recording.id) %>/delete" hx-confirm="Delete this recording permanently?" hx-target="#recordings-content" hx-swap="innerHTML" title="Delete recording" aria-label="Delete recording"><i class="bi bi-trash"></i></button>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      </section>
+    <% }) %>
+  </div>
+<% } %>

@@ -63,4 +63,57 @@ async function recordCurrentAiring({ seriesId, channel, startTime }) {
   return text ? JSON.parse(text) : null;
 }
 
-module.exports = { isConfigured, recordCurrentAiring };
+async function getJson(url) {
+  const res = await fetchWithTimeout(url);
+  if (!res.ok) throw new Error(`RECORD engine request failed: ${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+function recordingId(playUrl) {
+  try {
+    const url = new URL(playUrl);
+    const id = url.searchParams.get('id');
+    return /^[a-f0-9]+$/i.test(id || '') ? id : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+async function getRecordings() {
+  if (!isConfigured()) throw new Error('RECORD_ENGINE_HOST is not configured');
+  const series = await getJson(`${RECORD_BASE}/recorded_files.json`);
+  const groups = await Promise.all((Array.isArray(series) ? series : []).map(async (show) => {
+    const episodes = await getJson(`${RECORD_BASE}/recorded_files.json?${new URLSearchParams({ SeriesID: show.SeriesID })}`);
+    return {
+      ...show,
+      episodes: (Array.isArray(episodes) ? episodes : [])
+        .map((episode) => ({ ...episode, id: recordingId(episode.PlayURL) }))
+        .filter((episode) => episode.id),
+    };
+  }));
+  return groups.filter((group) => group.episodes.length);
+}
+
+async function getRecording(id) {
+  if (!/^[a-f0-9]+$/i.test(id)) return null;
+  const groups = await getRecordings();
+  for (const group of groups) {
+    const recording = group.episodes.find((episode) => episode.id === id);
+    if (recording) return recording;
+  }
+  return null;
+}
+
+function getPlaybackUrl(id) {
+  if (!/^[a-f0-9]+$/i.test(id) || !isConfigured()) return null;
+  return `${RECORD_BASE}/recorded/play?id=${encodeURIComponent(id)}`;
+}
+
+async function deleteRecording(id) {
+  if (!/^[a-f0-9]+$/i.test(id) || !isConfigured()) throw new Error('Recording not found');
+  const params = new URLSearchParams({ id, Cmd: 'delete' });
+  const res = await fetchWithTimeout(`${RECORD_BASE}/recorded/cmd?${params.toString()}`, { method: 'POST' });
+  if (!res.ok) throw new Error(`Delete recording request failed: ${res.status} ${res.statusText}`);
+}
+
+module.exports = { isConfigured, recordCurrentAiring, getRecordings, getRecording, getPlaybackUrl, deleteRecording };

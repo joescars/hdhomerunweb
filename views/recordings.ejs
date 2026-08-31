@@ -1,0 +1,15 @@
+<%- include('_client_header', { title: 'Recordings' }) %>
+
+<div class="d-flex align-items-center mb-3">
+  <a href="/" class="icon-link me-2" title="Back to guide" aria-label="Back to guide"><i class="bi bi-arrow-left"></i></a>
+  <h1 class="h5 mb-0 flex-grow-1">Recordings</h1>
+  <% if (recordEnabled) { %>
+    <button type="button" class="icon-link" hx-get="/recordings/fragment" hx-target="#recordings-content" hx-swap="innerHTML" title="Refresh" aria-label="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+  <% } %>
+</div>
+
+<div id="recordings-content" hx-get="/recordings/fragment" hx-trigger="load" hx-swap="innerHTML">
+  <div class="alert alert-secondary mb-0 d-flex align-items-center gap-2"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Loading recordings…</span></div>
+</div>
+
+<%- include('_footer') %>

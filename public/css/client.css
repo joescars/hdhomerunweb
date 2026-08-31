@@ -113,6 +113,17 @@ body.client-theme-bare {
   justify-content: center;
 }
 
+.recording-poster {
+  width: 4rem;
+  height: 4rem;
+  object-fit: cover;
+  border-radius: 0.375rem;
+}
+
+.min-w-0 {
+  min-width: 0;
+}
+
 body.client-theme .navbar.client-navbar {
   background-color: #0a1428;
   border-bottom: 1px solid #1f2f47;

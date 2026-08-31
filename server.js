@@ -10,6 +10,7 @@ const scanRoutes = require('./src/routes/scan');
 const statusRoutes = require('./src/routes/status');
 const guideRoutes = require('./src/routes/guide');
 const watchRoutes = require('./src/routes/watch');
+const recordingsRoutes = require('./src/routes/recordings');
 const apiRoutes = require('./src/routes/api');
 
 const app = express();
@@ -41,6 +42,7 @@ app.use('/admin', scanRoutes);
 app.use('/admin', statusRoutes);
 app.use(guideRoutes);
 app.use(watchRoutes);
+app.use(recordingsRoutes);
 app.use(apiRoutes);
 
 const server = app.listen(PORT, () => {
