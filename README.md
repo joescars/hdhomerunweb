@@ -1,4 +1,4 @@
-# LunaTV (hdhomerun-web)
+# LunaTV
 
 A mobile-first web client for watching and browsing live TV off your [HDHomeRun](https://www.silicondust.com/) tuner, plus an admin panel for device setup/management that's a friendlier alternative to the device's own built-in web interface. It talks to your HDHomeRun over its local HTTP API and runs as a small self-hosted Docker container.
 
@@ -90,10 +90,10 @@ You can find your device's current IP via its own web UI, your router's DHCP cli
 
 Watching a channel requires an Intel iGPU with Quick Sync Video (QSV) support on the Docker host, passed through to the container. `docker-compose.yml` already maps `/dev/dri` in; there's nothing else to configure for a standard setup.
 
-If you hit issues (stream never starts, or `docker logs hdhomerun-web` shows VAAPI/QSV errors), it's almost always the media driver:
+If you hit issues (stream never starts, or `docker compose logs` shows VAAPI/QSV errors), it's almost always the media driver:
 
 - Newer Intel iGPUs (e.g. N100/N150 "Alder Lake-N"/"Twin Lake") aren't recognized by the media driver version shipped in Debian's stable repos — VAAPI init fails outright. This is why the image installs [`jellyfin-ffmpeg`](https://github.com/jellyfin/jellyfin-ffmpeg) instead of stock `ffmpeg`: it bundles its own current Intel media driver rather than relying on the OS package.
-- You can sanity-check hardware acceleration directly: `docker exec hdhomerun-web ffmpeg -hwaccel qsv -hwaccel_output_format qsv -c:v mpeg2_qsv -i "http://<device-ip>:5004/auto/v<channel>" -c:v hevc_qsv -f null -` should report `va_openDriver() returns 0` and start encoding frames.
+- You can sanity-check hardware acceleration directly: `docker compose exec hdhomerun-web ffmpeg -hwaccel qsv -hwaccel_output_format qsv -c:v mpeg2_qsv -i "http://<device-ip>:5004/auto/v<channel>" -c:v hevc_qsv -f null -` should report `va_openDriver() returns 0` and start encoding frames.
 - No Intel GPU (or a system that doesn't support QSV) means live playback won't work; everything else in the app (guide, lineup, scan, status) is unaffected.
 
 ### Closed captions (browser)
