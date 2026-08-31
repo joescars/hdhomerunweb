@@ -109,10 +109,12 @@ function getPlaybackUrl(id) {
   return `${RECORD_BASE}/recorded/play?id=${encodeURIComponent(id)}`;
 }
 
-async function deleteRecording(id) {
-  if (!/^[a-f0-9]+$/i.test(id) || !isConfigured()) throw new Error('Recording not found');
-  const params = new URLSearchParams({ id, Cmd: 'delete' });
-  const res = await fetchWithTimeout(`${RECORD_BASE}/recorded/cmd?${params.toString()}`, { method: 'POST' });
+async function deleteRecording(recording) {
+  if (!recording || !recording.id || !recording.CmdURL || !isConfigured()) throw new Error('Recording not found');
+  const url = new URL(recording.CmdURL);
+  if (url.origin !== RECORD_BASE) throw new Error('Recording command URL is invalid');
+  url.searchParams.set('cmd', 'delete');
+  const res = await fetchWithTimeout(url, { method: 'POST' });
   if (!res.ok) throw new Error(`Delete recording request failed: ${res.status} ${res.statusText}`);
 }
 
