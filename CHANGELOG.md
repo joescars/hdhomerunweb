@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
   RECORD engine capture.
 - Added Roku HLS playback for completed recordings using the existing server
   recording stream start/poll handshake.
+- Live playback now shows an immediate scheduling notice and a red `REC` badge
+  in the bottom info bar after the current airing is queued for recording.
 
 ## 2026-08-30
 

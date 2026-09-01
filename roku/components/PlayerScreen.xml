@@ -77,6 +77,10 @@
                 height="36"
                 font="font:SmallSystemFont"
                 color="0x9CB0C4FF" />
+            <Group id="recordingIndicator" translation="[1700, 20]" visible="false">
+                <Rectangle width="150" height="42" color="0xDC2626FF" />
+                <Label translation="[0, 0]" width="150" height="42" text="REC" font="font:MediumBoldSystemFont" horizAlign="center" vertAlign="center" color="0xFFFFFFFF" />
+            </Group>
         </Group>
 
         <Timer id="infoHideTimer" duration="5" repeat="false" />

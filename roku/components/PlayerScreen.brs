@@ -15,6 +15,7 @@ sub init()
     m.infoChannelLabel = m.top.findNode("infoChannelLabel")
     m.infoNowLabel = m.top.findNode("infoNowLabel")
     m.infoNextLabel = m.top.findNode("infoNextLabel")
+    m.recordingIndicator = m.top.findNode("recordingIndicator")
     m.infoHideTimer = m.top.findNode("infoHideTimer")
     m.tuningStarted = false
     m.statsVisible = false
@@ -126,6 +127,7 @@ sub changeChannelBy(delta as integer)
     m.top.currentTitle = ch.currentTitle
     m.top.nextTitle = ch.nextTitle
     m.recordingScheduled = false
+    updateRecordingIndicator()
 
     if m.streamTask <> invalid
         m.streamTask.control = "STOP"
@@ -267,6 +269,7 @@ sub showChannelInfo()
     end if
 
     m.channelInfoOverlay.visible = true
+    updateRecordingIndicator()
     m.infoHideTimer.control = "stop"
     m.infoHideTimer.control = "start"
 end sub
@@ -571,10 +574,16 @@ sub onRecordResult(event as object)
     result = event.getData()
     if result <> invalid and result.success = true
         m.recordingScheduled = true
+        updateRecordingIndicator()
         showRecordingNotice("Recording scheduled")
     else
         showRecordingNotice("Could not schedule recording")
     end if
+end sub
+
+sub updateRecordingIndicator()
+    if m.recordingIndicator = invalid then return
+    m.recordingIndicator.visible = (m.recordingScheduled = true)
 end sub
 
 sub showRecordingNotice(message as string)
