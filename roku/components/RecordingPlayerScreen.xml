@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="RecordingPlayerScreen" extends="Group">
+    <interface>
+        <field id="serverUrl" type="string" />
+        <field id="recordingId" type="string" />
+        <field id="title" type="string" />
+        <field id="closed" type="boolean" alwaysNotify="true" />
+        <function name="onScreenFocus" />
+    </interface>
+    <children>
+        <Video id="video" width="1920" height="1080" visible="false" />
+        <Rectangle id="overlay" width="1920" height="1080" color="0x000000FF" visible="true" />
+        <BusySpinner id="spinner" translation="[910, 440]" />
+        <Label id="status" translation="[0, 560]" width="1920" height="70" horizAlign="center" font="font:MediumSystemFont" color="0xFFFFFFFF" />
+    </children>
+    <script type="text/brightscript" uri="RecordingPlayerScreen.brs" />
+</component>

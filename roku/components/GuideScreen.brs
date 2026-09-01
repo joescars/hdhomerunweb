@@ -584,6 +584,11 @@ function onKeyEvent(key as string, press as boolean) as boolean
         m.top.openSettings = true
         return true
     end if
+    if press and key = "play"
+        stopPreview()
+        m.top.openRecordings = true
+        return true
+    end if
     if press and key = "left"
         setFilterMode("all")
         return true

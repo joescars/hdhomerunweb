@@ -30,6 +30,8 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
   - A now/next info overlay during playback (press OK or `*`/Options) showing what's on and what's up next.
   - Closed captions.
   - Three codec/streaming modes, switchable in Settings: `h264`/`hevc` transcode (same QSV pipeline as the browser client) or an experimental no-transcode **Direct** mode (`-c copy` remux) — Direct is also currently the only mode that plays ATSC 3.0 (NextGen TV, HEVC Main10 + AC-4) channels; the transcode modes don't support ATSC 3.0 sources yet.
+  - DVR integration: press Play in the guide to browse recordings, play a selected recording, see active captures, and use Options to delete completed recordings or stop an active capture. Stopping an active capture discards its partial file.
+  - Press Down during live playback to schedule the current airing through the optional HDHomeRun RECORD engine.
 
   See [roku/README.md](roku/README.md) for setup and sideloading instructions.
 

@@ -93,6 +93,13 @@ While watching live TV, press **Up** on the remote to toggle a diagnostics
 overlay. It shows stream codec/profile/target bitrate plus live ffmpeg metrics
 (fps/speed/bitrate) and tuner signal telemetry when available.
 
+On the guide, press **Play** to open DVR recordings. Press **OK** to play a
+recording, **Options** to delete a completed recording or stop an active one,
+and **Back** to return. Active entries are labeled `RECORDING NOW` and the list
+refreshes every 15 seconds. Stopping discards the partial recording. While
+watching live TV, press **Down** to schedule the current airing. DVR requires
+the server's `RECORD_ENGINE_HOST` configuration.
+
 ## Things to know
 
 - **Only one sideloaded app can exist on a Roku at a time.** Installing this
@@ -143,7 +150,11 @@ components/
   GuideRow.*                 custom guide row renderer
   PlayerScreen.*             Video node + tuning overlay
   SettingsScreen.*           server URL editor
+  RecordingsScreen.*         DVR list, active-state refresh, and actions
+  RecordingPlayerScreen.*    recorded HLS playback
   GuideTask.*                fetches /api/guide off the render thread
+  RecordingsTask.*           fetches, deletes, and stops recordings off the render thread
+  RecordingStreamTask.*      starts/polls recorded HLS off the render thread
   StreamStartTask.*          start/poll handshake off the render thread
   Net.brs                    shared roUrlTransfer helpers
 ```

@@ -63,6 +63,37 @@ async function recordCurrentAiring({ seriesId, channel, startTime }) {
   return text ? JSON.parse(text) : null;
 }
 
+async function stopRecording(recording) {
+  if (!recording || !recording.SeriesID || !recording.ChannelNumber || !recording.StartTime || !isConfigured()) {
+    throw new Error('Recording not found');
+  }
+
+  const device = await hdhr.getDeviceInfo();
+  if (!device || !device.DeviceAuth) throw new Error('Device did not return a DeviceAuth token');
+
+  const rulesUrl = `${API_BASE}/api/recording_rules?${new URLSearchParams({ DeviceAuth: device.DeviceAuth })}`;
+  const rules = await getJson(rulesUrl);
+  const rule = (Array.isArray(rules) ? rules : []).find((candidate) => (
+    candidate.SeriesID === recording.SeriesID
+    && String(candidate.ChannelOnly) === String(recording.ChannelNumber)
+    && Number(candidate.DateTimeOnly) === Number(recording.StartTime)
+  ));
+  if (rule && rule.RecordingRuleID) {
+    const params = new URLSearchParams({
+      DeviceAuth: device.DeviceAuth,
+      Cmd: 'delete',
+      RecordingRuleID: String(rule.RecordingRuleID),
+    });
+    const res = await fetchWithTimeout(`${API_BASE}/api/recording_rules?${params.toString()}`, { method: 'POST' });
+    if (!res.ok) throw new Error(`Recording rule delete failed: ${res.status} ${res.statusText}`);
+  }
+  await fetchWithTimeout(`${RECORD_BASE}/recording_events.post?sync`, { method: 'POST' });
+  // The RECORD engine exposes no stop-and-keep-partial operation. Deleting an
+  // active file terminates its writer; removing the rule first prevents it from
+  // being immediately scheduled again.
+  await deleteRecording(recording);
+}
+
 async function getJson(url) {
   const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`RECORD engine request failed: ${res.status} ${res.statusText}`);
@@ -81,13 +112,18 @@ function recordingId(playUrl) {
 
 async function getRecordings() {
   if (!isConfigured()) throw new Error('RECORD_ENGINE_HOST is not configured');
+  const now = Math.floor(Date.now() / 1000);
   const series = await getJson(`${RECORD_BASE}/recorded_files.json`);
   const groups = await Promise.all((Array.isArray(series) ? series : []).map(async (show) => {
     const episodes = await getJson(`${RECORD_BASE}/recorded_files.json?${new URLSearchParams({ SeriesID: show.SeriesID })}`);
     return {
       ...show,
       episodes: (Array.isArray(episodes) ? episodes : [])
-        .map((episode) => ({ ...episode, id: recordingId(episode.PlayURL) }))
+        .map((episode) => ({
+          ...episode,
+          id: recordingId(episode.PlayURL),
+          recording: Number(episode.RecordStartTime) <= now && now < Number(episode.RecordEndTime || episode.EndTime),
+        }))
         .filter((episode) => episode.id),
     };
   }));
@@ -118,4 +154,4 @@ async function deleteRecording(recording) {
   if (!res.ok) throw new Error(`Delete recording request failed: ${res.status} ${res.statusText}`);
 }
 
-module.exports = { isConfigured, recordCurrentAiring, getRecordings, getRecording, getPlaybackUrl, deleteRecording };
+module.exports = { isConfigured, recordCurrentAiring, stopRecording, getRecordings, getRecording, getPlaybackUrl, deleteRecording };

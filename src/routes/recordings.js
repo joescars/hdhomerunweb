@@ -24,6 +24,18 @@ router.get('/recordings/fragment', async (req, res) => {
   }
 });
 
+// JSON endpoints used by the Roku client. Keep the browser's HTML routes
+// separate so both clients can share the same recording engine adapter.
+router.get('/api/recordings', async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  if (!record.isConfigured()) return res.status(501).json({ error: 'Recording is not configured on this server' });
+  try {
+    res.json({ recordings: await record.getRecordings() });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
 router.post('/recordings/:id/delete', async (req, res) => {
   const { id } = req.params;
   if (!ID_RE.test(id)) return res.status(400).send('Invalid recording');
@@ -34,6 +46,35 @@ router.post('/recordings/:id/delete', async (req, res) => {
     res.render('_recordings_list', { recordings: await record.getRecordings(), error: null });
   } catch (err) {
     res.status(502).send(err.message);
+  }
+});
+
+router.post('/api/recordings/:id/delete', async (req, res) => {
+  const { id } = req.params;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Invalid recording' });
+  if (!record.isConfigured()) return res.status(501).json({ error: 'Recording is not configured on this server' });
+  try {
+    const recording = await record.getRecording(id);
+    if (!recording) return res.status(404).json({ error: 'Recording not found' });
+    await record.deleteRecording(recording);
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
+
+router.post('/api/recordings/:id/stop', async (req, res) => {
+  const { id } = req.params;
+  if (!ID_RE.test(id)) return res.status(400).json({ error: 'Invalid recording' });
+  if (!record.isConfigured()) return res.status(501).json({ error: 'Recording is not configured on this server' });
+  try {
+    const recording = await record.getRecording(id);
+    if (!recording) return res.status(404).json({ error: 'Recording not found' });
+    if (!recording.recording) return res.status(409).json({ error: 'Recording is not active' });
+    await record.stopRecording(recording);
+    res.json({ stopped: true });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
   }
 });
 

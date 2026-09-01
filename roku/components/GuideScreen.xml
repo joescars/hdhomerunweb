@@ -17,6 +17,7 @@
         <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
         <!-- out: fires when the user presses the Options remote button -->
         <field id="openSettings" type="boolean" alwaysNotify="true" />
+        <field id="openRecordings" type="boolean" alwaysNotify="true" />
         <!-- callable from MainScene -->
         <function name="refreshGuide" />
         <function name="onScreenFocus" />

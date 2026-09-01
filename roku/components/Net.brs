@@ -42,7 +42,7 @@ function Net_HttpGet(url as string, timeoutMs as integer) as object
 end function
 
 ' Performs a POST request (empty body) with a timeout.
-' Returns an associative array: { success: boolean, code: integer, error: string }
+' Returns an associative array: { success: boolean, code: integer, body: string, error: string }
 function Net_HttpPost(url as string, timeoutMs as integer) as object
     xfer = CreateObject("roUrlTransfer")
     port = CreateObject("roMessagePort")
@@ -54,23 +54,24 @@ function Net_HttpPost(url as string, timeoutMs as integer) as object
 
     ok = xfer.AsyncPostFromString("")
     if not ok
-        return { success: false, code: 0, error: "Could not start POST request" }
+        return { success: false, code: 0, body: "", error: "Could not start POST request" }
     end if
 
     msg = wait(timeoutMs, port)
     if msg = invalid
         xfer.AsyncCancel()
-        return { success: false, code: 0, error: "Request timed out" }
+        return { success: false, code: 0, body: "", error: "Request timed out" }
     end if
 
     if type(msg) = "roUrlEvent"
         code = msg.GetResponseCode()
+        body = msg.GetString()
         if code >= 200 and code < 300
-            return { success: true, code: code, error: "" }
+            return { success: true, code: code, body: body, error: "" }
         else
-            return { success: false, code: code, error: "HTTP " + code.ToStr() }
+            return { success: false, code: code, body: body, error: "HTTP " + code.ToStr() }
         end if
     end if
 
-    return { success: false, code: 0, error: "Unexpected response from server" }
+    return { success: false, code: 0, body: "", error: "Unexpected response from server" }
 end function

@@ -24,6 +24,8 @@ sub init()
     m.channels = invalid
     m.currentIndex = invalid
     m.failed = false
+    m.recordTask = invalid
+    m.recordingScheduled = false
 
     m.video.observeField("state", "onVideoStateChange")
     m.statsTimer.observeField("fire", "onStatsTimerFire")
@@ -123,6 +125,7 @@ sub changeChannelBy(delta as integer)
     m.top.streamPath = buildStreamPath(ch.channelNumber)
     m.top.currentTitle = ch.currentTitle
     m.top.nextTitle = ch.nextTitle
+    m.recordingScheduled = false
 
     if m.streamTask <> invalid
         m.streamTask.control = "STOP"
@@ -518,6 +521,10 @@ function onKeyEvent(key as string, press as boolean) as boolean
         toggleChannelInfo()
         return true
     end if
+    if press and key = "down"
+        recordCurrentAiring()
+        return true
+    end if
     if press and key = "rewind"
         changeChannelBy(-1)
         return true
@@ -540,6 +547,44 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
     return false
 end function
+
+sub recordCurrentAiring()
+    if m.recordTask <> invalid
+        showRecordingNotice("Scheduling current airing...")
+        return
+    end if
+    if m.recordingScheduled = true
+        showRecordingNotice("Recording already scheduled")
+        return
+    end if
+    task = CreateObject("roSGNode", "RecordCurrentTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = m.top.channelNumber
+    task.observeField("result", "onRecordResult")
+    m.recordTask = task
+    showRecordingNotice("Scheduling current airing...")
+    task.control = "RUN"
+end sub
+
+sub onRecordResult(event as object)
+    m.recordTask = invalid
+    result = event.getData()
+    if result <> invalid and result.success = true
+        m.recordingScheduled = true
+        showRecordingNotice("Recording scheduled")
+    else
+        showRecordingNotice("Could not schedule recording")
+    end if
+end sub
+
+sub showRecordingNotice(message as string)
+    m.infoChannelLabel.text = "DVR"
+    m.infoNowLabel.text = message
+    m.infoNextLabel.visible = false
+    m.channelInfoOverlay.visible = true
+    m.infoHideTimer.control = "stop"
+    m.infoHideTimer.control = "start"
+end sub
 
 sub closePlayer()
     hideStatsPanel()

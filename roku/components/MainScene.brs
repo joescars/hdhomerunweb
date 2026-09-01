@@ -190,8 +190,36 @@ sub showGuide()
     screen.livePreviewEnabled = m.livePreviewEnabled
     screen.observeField("launchPlayer", "onLaunchPlayer")
     screen.observeField("openSettings", "onOpenSettings")
+    screen.observeField("openRecordings", "onOpenRecordings")
     m.guideScreen = screen
     pushScreen(screen)
+end sub
+
+sub onOpenRecordings(event as object)
+    screen = CreateObject("roSGNode", "RecordingsScreen")
+    screen.serverUrl = m.serverUrl
+    screen.observeField("openRecording", "onOpenRecording")
+    screen.observeField("closed", "onRecordingsClosed")
+    pushScreen(screen)
+end sub
+
+sub onOpenRecording(event as object)
+    data = event.getData()
+    if data = invalid then return
+    screen = CreateObject("roSGNode", "RecordingPlayerScreen")
+    screen.serverUrl = m.serverUrl
+    screen.recordingId = data.id
+    screen.title = data.title
+    screen.observeField("closed", "onRecordingPlayerClosed")
+    pushScreen(screen)
+end sub
+
+sub onRecordingPlayerClosed(event as object)
+    popScreen()
+end sub
+
+sub onRecordingsClosed(event as object)
+    popScreen()
 end sub
 
 ' --- splash ---------------------------------------------------------------
