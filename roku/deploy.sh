@@ -64,7 +64,8 @@ fi
 echo "Built $ZIP_NAME ($(du -h "$ZIP_NAME" | cut -f1))"
 
 if [[ -f "$ZIP_NAME" ]]; then
-  if ! unzip -l "$ZIP_NAME" | grep -qE '^\s+[0-9]+.*\smanifest$'; then
+  manifest_entry=$(unzip -Z1 "$ZIP_NAME" | grep -x 'manifest' || true)
+  if [[ "$manifest_entry" != 'manifest' ]]; then
     echo "ERROR: manifest is not at the zip root - Roku will reject this." >&2
     exit 1
   fi
