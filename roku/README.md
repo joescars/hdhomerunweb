@@ -1,9 +1,9 @@
 ---
-title: HDHomeRun Web Roku client
-description: Deploy and configure the Roku client for an HDHomeRun Web server
+title: LunaTV Roku client
+description: Deploy and configure the LunaTV Roku client
 ---
 
-A Roku app for the `hdhomerun-web` server: browse a now/next channel guide and
+A Roku app for the LunaTV server: browse a now/next channel guide and
 watch live TV on your TV. It's a thin client: the server does all the tuning
 and transcoding, and the Roku just plays the resulting HLS stream.
 
@@ -77,7 +77,31 @@ at `http://<roku-ip>`, user `rokudev`):
 ./deploy.sh --package-only
 ```
 
-## 4. Debugging
+## 4. Using the app
+
+- **Guide:** Left selects All channels; Right selects Favorites. Recently
+  watched channels are pinned at the top, while the guide preserves your
+  focused channel when that ordering changes.
+- **Settings:** Press **Options / `*`** on the guide. Press **OK** to edit and
+  test the server URL; **Left/Right** cycles H.264, HEVC, and Direct streaming
+  modes; **Up/Down** toggles live preview. These choices are saved on the Roku.
+  H.264 is the default and supports closed captions. HEVC is more efficient but
+  does not carry captions. Direct skips transcoding and is experimental.
+- **Live preview:** A small H.264 preview starts after guide focus settles. It
+  is best effort and uses a tuner while playing; turn it off in Settings if
+  tuner capacity is limited.
+- **Live TV:** Press **OK** or **Options** for the channel/program info bar,
+  **Rewind/Fast Forward** to surf visible guide channels, and **Up** to toggle
+  the diagnostics overlay.
+- **DVR:** Press **Play** on the guide to open recordings. Press **OK** to play
+  a recording, **Options** to delete a completed recording or stop an active
+  one, and **Back** to return. Active entries are labeled `RECORDING NOW` and
+  refresh every 15 seconds. Stopping discards the partial recording. While
+  watching live TV, press **Down** to schedule the current airing; a notice and
+  `REC` badge confirm a successful request. DVR requires the server's
+  `RECORD_ENGINE_HOST` configuration.
+
+## 5. Debugging
 
 BrightScript errors and any `print` output go to the debug console:
 
@@ -92,13 +116,6 @@ carry several KB of ffmpeg output that would be unreadable on a TV.
 While watching live TV, press **Up** on the remote to toggle a diagnostics
 overlay. It shows stream codec/profile/target bitrate plus live ffmpeg metrics
 (fps/speed/bitrate) and tuner signal telemetry when available.
-
-On the guide, press **Play** to open DVR recordings. Press **OK** to play a
-recording, **Options** to delete a completed recording or stop an active one,
-and **Back** to return. Active entries are labeled `RECORDING NOW` and the list
-refreshes every 15 seconds. Stopping discards the partial recording. While
-watching live TV, press **Down** to schedule the current airing. DVR requires
-the server's `RECORD_ENGINE_HOST` configuration.
 
 ## Things to know
 
@@ -122,11 +139,11 @@ Roku app                     hdhomerun-web server              HDHomeRun
    |-- GET /api/guide --------------->|-- cloud Guide API           |
    |<-- channels + now/next ----------|                             |
    |                                  |                             |
-   |-- POST /stream/3.1/hevc/start -->|-- spawn ffmpeg (QSV) ------->| tune
-   |-- GET  /stream/3.1/hevc/ready -->|   (poll every 500ms)         |
+   |-- POST /stream/3.1/h264/start -->|-- spawn ffmpeg (QSV) ------->| tune
+   |-- GET  /stream/3.1/h264/ready -->|   (poll every 500ms)         |
    |<-- {"ready":true} ---------------|                             |
    |                                  |                             |
-   |-- GET /stream/3.1/hevc/          |   MPEG2/AC3 -> HEVC/AAC HLS  |
+   |-- GET /stream/3.1/h264/          |   MPEG2/AC3 -> H.264/AAC HLS |
    |       stream.m3u8 -------------->|                             |
    |<== HLS segments =================|<============================|
 ```
@@ -135,9 +152,11 @@ The start/poll handshake exists because the HLS playlist doesn't exist until
 ffmpeg has spun up (typically 2–4s). Pointing the Video node at the `.m3u8`
 before then fails. Don't collapse those steps.
 
-Transcoding isn't optional here: Roku's MPEG-2 support varies across the device
-fleet, and raw MPEG-TS straight from the tuner isn't a supported Roku stream
-format regardless.
+H.264 is the default because it is broadly compatible and supports closed
+captions. Settings can select HEVC for better efficiency, or experimental
+Direct mode, which remuxes the tuner's source without transcoding. Direct can
+help with ATSC 3.0 sources, but raw MPEG-TS/HLS codec support varies by Roku
+model and is not guaranteed.
 
 ## Layout
 
@@ -145,17 +164,20 @@ format regardless.
 manifest                     app metadata, icons, splash
 source/main.brs              entry point
 components/
-  MainScene.*                screen stack, registry, server URL
+  MainScene.*                screen stack and persisted server/stream settings
   GuideScreen.*              compact multi-column channel guide
   GuideRow.*                 custom guide row renderer
-  PlayerScreen.*             Video node + tuning overlay
-  SettingsScreen.*           server URL editor
+  PlayerScreen.*             Video node, program info, diagnostics, DVR badge
+  SettingsScreen.*           server URL, streaming mode, and preview settings
   RecordingsScreen.*         DVR list, active-state refresh, and actions
   RecordingPlayerScreen.*    recorded HLS playback
   GuideTask.*                fetches /api/guide off the render thread
   RecordingsTask.*           fetches, deletes, and stops recordings off the render thread
   RecordingStreamTask.*      starts/polls recorded HLS off the render thread
+  RecordCurrentTask.*        schedules the current airing off the render thread
   StreamStartTask.*          start/poll handshake off the render thread
+  StreamStatsTask.*          fetches live stream and tuner diagnostics
+  UrlCheckTask.*             validates a saved server URL off the render thread
   Net.brs                    shared roUrlTransfer helpers
 ```
 
