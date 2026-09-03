@@ -18,6 +18,29 @@ details for the focused program. The preview area is intentionally not used as
 a playback indicator in documentation: Roku developer screenshots capture the
 SceneGraph UI layer but not the hardware video plane.
 
+### DVR recordings
+
+![LunaTV Roku DVR recordings list with a selected completed recording and its channel](../docs/roku/dvr.jpg)
+
+When an optional HDHomeRun RECORD engine is configured, the DVR view lists
+recordings with their status and originating channel. Select a recording to
+play it; use **Options** to delete a completed recording or stop an active one.
+
+### Live playback
+
+![LunaTV Roku live playback showing the channel and program information bar](../docs/roku/show.jpg)
+
+The in-player information bar identifies the tuned channel and current program.
+Press **OK** or **Options** to show it again while watching live TV.
+
+### Stream diagnostics
+
+![LunaTV Roku live playback with the stream diagnostics overlay showing codec, video and audio details, bitrate, and ffmpeg performance](../docs/roku/diagnostics.jpg)
+
+Press **Up** during live playback to toggle the diagnostics overlay. It exposes
+the active codec and profile, detected media properties, measured bitrate, and
+live ffmpeg telemetry for troubleshooting.
+
 > **This is meant to be sideloaded, not published.** Roku discontinued private
 > (non-certified) channels in February 2022. The replacement, Beta Channels,
 > expires after 120 days and caps at 20 installs — not useful for a personal
