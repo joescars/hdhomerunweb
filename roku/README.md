@@ -7,6 +7,17 @@ A Roku app for the LunaTV server: browse a now/next channel guide and
 watch live TV on your TV. It's a thin client: the server does all the tuning
 and transcoding, and the Roku just plays the resulting HLS stream.
 
+## Screenshots
+
+### Channel guide
+
+![LunaTV Roku channel guide showing favorite channels, a three-column schedule, and program details](../docs/roku/channel-guide.jpg)
+
+The guide shows the active channel filter, current and upcoming programs, and
+details for the focused program. The preview area is intentionally not used as
+a playback indicator in documentation: Roku developer screenshots capture the
+SceneGraph UI layer but not the hardware video plane.
+
 > **This is meant to be sideloaded, not published.** Roku discontinued private
 > (non-certified) channels in February 2022. The replacement, Beta Channels,
 > expires after 120 days and caps at 20 installs — not useful for a personal
