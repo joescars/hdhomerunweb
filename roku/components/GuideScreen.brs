@@ -20,6 +20,7 @@ sub init()
     m.hasLoadedOnce = false
     m.guideStarted = false
     m.lastFocusedIndex = 0
+    m.restoreFocusedChannelNumber = invalid
     m.filterMode = readFilterMode()
     m.allChannels = []
     m.recentChannels = []
@@ -133,7 +134,17 @@ sub applyCurrentFilter()
         return
     end if
 
-    focusIndex = m.lastFocusedIndex
+    restoreChannel = m.restoreFocusedChannelNumber
+    m.restoreFocusedChannelNumber = invalid
+    focusIndex = findChannelIndex(restoreChannel)
+    if focusIndex >= 0
+        ' Updating recent channels can reorder and replace the grid content.
+        ' Return the viewer to the channel they were browsing before playback.
+        m.lastFocusedIndex = focusIndex
+        m.guideGrid.jumpToItem = focusIndex
+    else
+        focusIndex = m.lastFocusedIndex
+    end if
     if focusIndex >= childCount then focusIndex = childCount - 1
     if focusIndex < 0 then focusIndex = 0
     updateFocusedDetails(focusIndex)
@@ -197,6 +208,8 @@ function isRecentChannel(channelNumber as dynamic) as boolean
 end function
 
 sub onRecentChannelsChange(event as object)
+    focusedChannel = getFocusedChannelNumber()
+    if focusedChannel <> invalid then m.restoreFocusedChannelNumber = focusedChannel
     m.recentChannels = event.getData()
     if m.recentChannels = invalid then m.recentChannels = []
     if m.hasLoadedOnce then applyCurrentFilter()
@@ -337,6 +350,26 @@ function getGuideChildCount() as integer
     content = m.guideGrid.content
     if content = invalid then return 0
     return content.GetChildCount()
+end function
+
+function getFocusedChannelNumber() as dynamic
+    content = m.guideGrid.content
+    if content = invalid then return invalid
+    chNode = content.GetChild(m.lastFocusedIndex)
+    if chNode = invalid then return invalid
+    return chNode.ChannelNumber
+end function
+
+function findChannelIndex(channelNumber as dynamic) as integer
+    if channelNumber = invalid then return -1
+    content = m.guideGrid.content
+    if content = invalid then return -1
+
+    for i = 0 to content.GetChildCount() - 1
+        chNode = content.GetChild(i)
+        if chNode <> invalid and chNode.ChannelNumber = channelNumber then return i
+    end for
+    return -1
 end function
 
 function findProgramAt(programs as object, timestamp as integer) as object
