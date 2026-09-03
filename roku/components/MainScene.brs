@@ -255,6 +255,7 @@ sub onLaunchPlayer(event as object)
     screen.streamPath = "/stream/" + data.channelNumber.ToStr() + "/" + codec + "/stream.m3u8"
     screen.channels = data.channels
     screen.currentTitle = data.currentTitle
+    screen.currentSynopsis = data.currentSynopsis
     screen.nextTitle = data.nextTitle
     screen.observeField("closed", "onPlayerClosed")
     pushScreen(screen)

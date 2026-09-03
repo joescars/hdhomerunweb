@@ -14,7 +14,7 @@ sub init()
     m.channelInfoOverlay = m.top.findNode("channelInfoOverlay")
     m.infoChannelLabel = m.top.findNode("infoChannelLabel")
     m.infoNowLabel = m.top.findNode("infoNowLabel")
-    m.infoNextLabel = m.top.findNode("infoNextLabel")
+    m.infoDescriptionLabel = m.top.findNode("infoDescriptionLabel")
     m.recordingIndicator = m.top.findNode("recordingIndicator")
     m.infoHideTimer = m.top.findNode("infoHideTimer")
     m.tuningStarted = false
@@ -125,6 +125,7 @@ sub changeChannelBy(delta as integer)
     m.top.channelName = ch.channelName
     m.top.streamPath = buildStreamPath(ch.channelNumber)
     m.top.currentTitle = ch.currentTitle
+    m.top.currentSynopsis = ch.currentSynopsis
     m.top.nextTitle = ch.nextTitle
     m.recordingScheduled = false
     updateRecordingIndicator()
@@ -242,7 +243,7 @@ sub playStream()
     showChannelInfo()
 end sub
 
-' --- now/next info overlay ------------------------------------------------
+' --- program info overlay -------------------------------------------------
 
 ' Snapshot at tune time (from the guide's already-fetched EPG data), not
 ' live-updated while a program is playing - accurate whenever you tune or
@@ -254,19 +255,15 @@ sub showChannelInfo()
     channelText = m.top.channelNumber.ToStr() + "  " + m.top.channelName
     m.infoChannelLabel.text = channelText
 
-    nowText = ""
-    if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then nowText = m.top.currentTitle
-    if nowText = "" then nowText = "(no program info)"
-    m.infoNowLabel.text = "Now: " + nowText
+    title = ""
+    if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then title = m.top.currentTitle
+    if title = "" then title = "(no program info)"
+    m.infoNowLabel.text = title
 
-    nextText = ""
-    if m.top.nextTitle <> invalid and m.top.nextTitle <> "" then nextText = m.top.nextTitle
-    if nextText <> ""
-        m.infoNextLabel.text = "Next: " + nextText
-        m.infoNextLabel.visible = true
-    else
-        m.infoNextLabel.visible = false
-    end if
+    synopsis = ""
+    if m.top.currentSynopsis <> invalid then synopsis = m.top.currentSynopsis
+    m.infoDescriptionLabel.text = synopsis
+    m.infoDescriptionLabel.visible = (synopsis <> "")
 
     m.channelInfoOverlay.visible = true
     updateRecordingIndicator()
@@ -589,7 +586,7 @@ end sub
 sub showRecordingNotice(message as string)
     m.infoChannelLabel.text = "DVR"
     m.infoNowLabel.text = message
-    m.infoNextLabel.visible = false
+    m.infoDescriptionLabel.visible = false
     m.channelInfoOverlay.visible = true
     m.infoHideTimer.control = "stop"
     m.infoHideTimer.control = "start"

@@ -453,6 +453,7 @@ sub tuneToChannelIndex(chIdx as integer)
                 channelName: c.ChannelName
                 streamPath: c.StreamPath
                 currentTitle: c.DetailsTitle
+                currentSynopsis: c.Synopsis
                 nextTitle: c.NextTitle
             })
         end if
@@ -463,6 +464,7 @@ sub tuneToChannelIndex(chIdx as integer)
         channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
         currentTitle: chNode.DetailsTitle
+        currentSynopsis: chNode.Synopsis
         nextTitle: chNode.NextTitle
         channels: channels
     }

@@ -9,8 +9,9 @@
         <field id="streamPath" type="string" />
         <!-- in: ordered list of visible channels for rewind/forward surfing -->
         <field id="channels" type="array" />
-        <!-- in: current/next program titles for the now/next info overlay -->
+        <!-- in: current program details for the playback info overlay -->
         <field id="currentTitle" type="string" />
+        <field id="currentSynopsis" type="string" />
         <field id="nextTitle" type="string" />
         <!-- out: fires when the user backs out of the player -->
         <field id="closed" type="boolean" alwaysNotify="true" />
@@ -71,11 +72,12 @@
                 height="40"
                 font="font:MediumBoldSystemFont"
                 color="0x38BDF8FF" />
-            <Label id="infoNextLabel"
+            <Label id="infoDescriptionLabel"
                 translation="[60, 122]"
                 width="1800"
-                height="36"
+                height="46"
                 font="font:SmallSystemFont"
+                wrap="true"
                 color="0x9CB0C4FF" />
             <Group id="recordingIndicator" translation="[1700, 20]" visible="false">
                 <Rectangle width="150" height="42" color="0xDC2626FF" />
