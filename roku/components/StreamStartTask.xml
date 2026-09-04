@@ -7,6 +7,8 @@
         <field id="channelNumber" type="string" />
         <!-- in: stream codec ("h264" or "hevc") -->
         <field id="codec" type="string" />
+        <field id="profile" type="string" />
+        <field id="maxWaitMs" type="integer" />
         <!-- out: { state: "ready"|"failed"|"timeout", reason: string, error: string } -->
         <field id="result" type="assocarray" alwaysNotify="true" />
     </interface>

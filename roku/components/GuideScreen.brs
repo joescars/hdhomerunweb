@@ -125,7 +125,7 @@ end sub
 sub applyCurrentFilter()
     if m.lastServerTime = invalid or m.lastSlotStart = invalid then return
     channels = getFilteredChannels()
-    applyGuideContent(channels, m.lastServerTime, m.lastSlotStart)
+    applyGuideContent(channels)
 
     childCount = getGuideChildCount()
     if childCount <= 0
@@ -254,10 +254,10 @@ sub writeFilterMode(mode as string)
     sec.Flush()
 end sub
 
-sub applyGuideContent(channels as object, serverTime as integer, slotStart as integer)
+sub applyGuideContent(channels as object)
     existing = m.guideGrid.content
     if existing = invalid
-        m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+        m.guideGrid.content = buildGuideContent(channels)
         return
     end if
 
@@ -265,17 +265,17 @@ sub applyGuideContent(channels as object, serverTime as integer, slotStart as in
     incomingCount = channels.Count()
 
     if existingCount <> incomingCount
-        m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+        m.guideGrid.content = buildGuideContent(channels)
         return
     end if
 
     for i = 0 to incomingCount - 1
         ch = channels[i]
-        row = buildGuideRow(ch, serverTime, slotStart)
+        row = buildGuideRow(ch)
         node = existing.GetChild(i)
 
         if node = invalid or node.ChannelNumber <> row.ChannelNumber
-            m.guideGrid.content = buildGuideContent(channels, serverTime, slotStart)
+            m.guideGrid.content = buildGuideContent(channels)
             return
         end if
 
@@ -285,47 +285,36 @@ sub applyGuideContent(channels as object, serverTime as integer, slotStart as in
     end for
 end sub
 
-function buildGuideContent(channels as object, serverTime as integer, slotStart as integer) as object
+function buildGuideContent(channels as object) as object
     root = CreateObject("roSGNode", "ContentNode")
 
     for each ch in channels
         chNode = root.CreateChild("ContentNode")
-        chNode.AddFields(buildGuideRow(ch, serverTime, slotStart))
+        chNode.AddFields(buildGuideRow(ch))
     end for
 
     return root
 end function
 
-function buildGuideRow(ch as object, serverTime as integer, slotStart as integer) as object
-    current = findProgramAt(ch.programs, serverTime)
-    nextProgram = findNextProgramAt(ch.programs, serverTime)
-    firstSlot = findProgramAt(ch.programs, slotStart)
-    secondSlot = findProgramAt(ch.programs, slotStart + 1800)
-    thirdSlot = findProgramAt(ch.programs, slotStart + 3600)
-
-    detailsTitle = current.title
-    if current.episodeTitle <> ""
-        detailsTitle = detailsTitle + " - " + current.episodeTitle
-    end if
-
+function buildGuideRow(ch as object) as object
     isRecent = isRecentChannel(ch.number)
 
-    rowSignature = ch.number.ToStr() + "|" + firstSlot.title + "|" + secondSlot.title + "|" + thirdSlot.title + "|" + detailsTitle + "|" + current.synopsis + "|" + nextProgram.title + "|" + isRecent.ToStr() + "|" + current.image
+    rowSignature = ch.number.ToStr() + "|" + ch.firstTitle + "|" + ch.secondTitle + "|" + ch.thirdTitle + "|" + ch.detailsTitle + "|" + ch.synopsis + "|" + ch.nextTitle + "|" + isRecent.ToStr() + "|" + ch.currentImage
 
     return {
         ChannelNumber: ch.number
         ChannelName: ch.name
         LogoUri: ch.logo
-        StreamPath: ch.streamPath
+        StreamPath: "/stream/" + ch.number.ToStr() + "/h264/medium/stream.m3u8"
         Favorite: ch.favorite
         IsRecent: isRecent
-        FirstTitle: firstSlot.title
-        SecondTitle: secondSlot.title
-        ThirdTitle: thirdSlot.title
-        DetailsTitle: detailsTitle
-        Synopsis: current.synopsis
-        NextTitle: nextProgram.title
-        CurrentImage: current.image
+        FirstTitle: ch.firstTitle
+        SecondTitle: ch.secondTitle
+        ThirdTitle: ch.thirdTitle
+        DetailsTitle: ch.detailsTitle
+        Synopsis: ch.synopsis
+        NextTitle: ch.nextTitle
+        CurrentImage: ch.currentImage
         RowSignature: rowSignature
     }
 end function
@@ -558,31 +547,33 @@ sub startPreviewForFocusedChannel()
     stopPreview()
     m.previewChannelNumber = channelNumber
 
-    task = CreateObject("roSGNode", "StreamStartTask")
-    task.serverUrl = m.top.serverUrl
-    task.channelNumber = channelNumber
+    if m.previewTask = invalid
+        m.previewTask = CreateObject("roSGNode", "StreamStartTask")
+        m.previewTask.observeField("result", "onPreviewStreamResult")
+    end if
+    m.previewTask.serverUrl = m.top.serverUrl
+    m.previewTask.channelNumber = channelNumber
     ' Always h264 for the preview regardless of the user's main playback
     ' codec preference - lowest-risk/most broadly compatible path (same
     ' reasoning as the caption work: h264_qsv is the one codec proven to
     ' just work), and a background preview is not the place to test Direct
     ' mode or HEVC.
-    task.codec = "h264"
-    task.observeField("result", "onPreviewStreamResult")
-    task.control = "RUN"
-    m.previewTask = task
+    m.previewTask.codec = "h264"
+    m.previewTask.profile = "low"
+    m.previewTask.maxWaitMs = 10000
+    m.previewTask.control = "RUN"
 end sub
 
 sub onPreviewStreamResult(event as object)
     result = event.getData()
     taskNode = event.getRoSGNode()
-    m.previewTask = invalid
     if result = invalid or result.state <> "ready" then return
 
     ' The focused row may have moved on again while this was in flight -
     ' only apply the result if it's still for the channel we currently want.
     if taskNode = invalid or taskNode.channelNumber <> m.previewChannelNumber then return
 
-    url = m.top.serverUrl + "/stream/" + m.previewChannelNumber + "/h264/stream.m3u8"
+    url = m.top.serverUrl + "/stream/" + m.previewChannelNumber + "/h264/low/stream.m3u8"
     content = CreateObject("roSGNode", "ContentNode")
     content.url = url
     content.streamFormat = "hls"
@@ -600,7 +591,9 @@ sub stopPreview()
     m.previewDebounceTimer.control = "stop"
     if m.previewTask <> invalid
         m.previewTask.control = "STOP"
-        m.previewTask = invalid
+    end if
+    if m.previewChannelNumber <> invalid and m.previewChannelNumber <> ""
+        requestStreamStop(m.previewChannelNumber, "h264", "low")
     end if
     m.previewVideo.visible = false
     m.previewVideo.control = "stop"
@@ -609,6 +602,15 @@ sub stopPreview()
     ' driven by focus (updatePreviewThumbnail), not by preview lifecycle, so
     ' the logo+name stay visible as the fallback/placeholder.
     m.previewChannelNumber = invalid
+end sub
+
+sub requestStreamStop(channelNumber as string, codec as string, profile as string)
+    task = CreateObject("roSGNode", "StreamStopTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = channelNumber
+    task.codec = codec
+    task.profile = profile
+    task.control = "RUN"
 end sub
 
 ' --- key handling ---------------------------------------------------------

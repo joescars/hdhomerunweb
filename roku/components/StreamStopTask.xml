@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="StreamStopTask" extends="Task">
+    <interface>
+        <field id="serverUrl" type="string" />
+        <field id="channelNumber" type="string" />
+        <field id="codec" type="string" />
+        <field id="profile" type="string" />
+    </interface>
+    <script type="text/brightscript" uri="Net.brs" />
+    <script type="text/brightscript" uri="StreamStopTask.brs" />
+</component>

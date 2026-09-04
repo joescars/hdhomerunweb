@@ -97,7 +97,7 @@
                 text="" />
         </Group>
 
-        <Timer id="previewDebounceTimer" duration="0.9" repeat="false" />
+        <Timer id="previewDebounceTimer" duration="1.75" repeat="false" />
 
         <!-- Full-screen overlay used for loading state and fatal guide errors. -->
         <Rectangle id="statusBg"

@@ -20,7 +20,7 @@
     </interface>
 
     <children>
-        <Timer id="statsTimer" repeat="true" duration="2.5" />
+        <Timer id="statsTimer" repeat="true" duration="3" />
 
         <Video id="video"
             translation="[0, 0]"

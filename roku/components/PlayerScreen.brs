@@ -74,6 +74,7 @@ sub startTuning()
     task.serverUrl = m.top.serverUrl
     task.channelNumber = m.top.channelNumber
     task.codec = normalizeCodec(m.top.codec)
+    task.profile = "medium"
     task.observeField("result", "onStreamStartResult")
     task.control = "RUN"
     m.streamTask = task
@@ -120,6 +121,9 @@ sub changeChannelBy(delta as integer)
     ch = m.channels[newIdx]
     if ch = invalid then return
 
+    oldChannelNumber = m.top.channelNumber
+    oldCodec = normalizeCodec(m.top.codec)
+    oldProfile = m.statsProfile
     m.currentIndex = newIdx
     m.top.channelNumber = ch.channelNumber
     m.top.channelName = ch.channelName
@@ -134,6 +138,7 @@ sub changeChannelBy(delta as integer)
         m.streamTask.control = "STOP"
         m.streamTask = invalid
     end if
+    requestStreamStop(oldChannelNumber, oldCodec, oldProfile)
     if m.video <> invalid
         m.video.control = "stop"
     end if
@@ -343,21 +348,20 @@ sub onStatsTimerFire(event as object)
 end sub
 
 sub requestStats()
-    if m.statsTask <> invalid then return
-
-    task = CreateObject("roSGNode", "StreamStatsTask")
-    task.serverUrl = m.top.serverUrl
-    task.channelNumber = m.top.channelNumber
-    task.codec = m.statsCodec
-    task.profile = m.statsProfile
-    task.observeField("result", "onStatsResult")
-    task.control = "RUN"
-    m.statsTask = task
+    if m.statsTask = invalid
+        m.statsTask = CreateObject("roSGNode", "StreamStatsTask")
+        m.statsTask.observeField("result", "onStatsResult")
+    end if
+    if m.statsTask.control = "RUN" then return
+    m.statsTask.serverUrl = m.top.serverUrl
+    m.statsTask.channelNumber = m.top.channelNumber
+    m.statsTask.codec = m.statsCodec
+    m.statsTask.profile = m.statsProfile
+    m.statsTask.control = "RUN"
 end sub
 
 sub onStatsResult(event as object)
     result = event.getData()
-    m.statsTask = invalid
     if m.statsVisible <> true then return
 
     if result = invalid or result.success <> true
@@ -602,8 +606,19 @@ sub closePlayer()
         m.streamTask.control = "STOP"
         m.streamTask = invalid
     end if
+    requestStreamStop(m.top.channelNumber, normalizeCodec(m.top.codec), m.statsProfile)
     ' Explicitly halt playback on the way out even though the server also
     ' auto-releases the tuner ~20s after requests stop.
     m.video.control = "stop"
     m.top.closed = true
+end sub
+
+sub requestStreamStop(channelNumber as dynamic, codec as string, profile as string)
+    if channelNumber = invalid or channelNumber = "" then return
+    task = CreateObject("roSGNode", "StreamStopTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = channelNumber.ToStr()
+    task.codec = codec
+    task.profile = profile
+    task.control = "RUN"
 end sub

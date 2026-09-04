@@ -16,18 +16,13 @@ sub main()
 
     ' Best-effort "app resumed" detection.
     '
-    ' NOTE (uncertain / needs on-device verification): EnableAppFocusEvent and
-    ' EnableScreensaverExitedEvent deliver roDeviceInfoEvent messages on the
-    ' device info object's message port. We wire that to the same port as the
-    ' screen so a single wait() loop sees everything. We do NOT try to
-    ' distinguish "focus gained" vs "focus lost" or inspect the event payload
-    ' precisely - we treat receipt of ANY such event as a hint to refresh the
-    ' guide. Worst case this causes one extra harmless /api/guide fetch.
+    ' App-focus events cannot be safely distinguished as gain vs. loss across
+    ' supported firmware versions. Subscribe only to screensaver exit, which
+    ' is unambiguously a resume event and never fires while backgrounding.
     ' The 5-minute GuideScreen timer is the reliable primary refresh
     ' mechanism; this is just a best-effort improvement for accuracy.
     deviceInfo = CreateObject("roDeviceInfo")
     deviceInfo.SetMessagePort(port)
-    deviceInfo.EnableAppFocusEvent(true)
     deviceInfo.EnableScreensaverExitedEvent(true)
 
     while true
