@@ -241,6 +241,7 @@ sub onPlayerClosed(event as object)
     ' own onChange handler to just re-render from its already-cached data.
     if m.guideScreen <> invalid
         m.guideScreen.recentChannels = readRecentChannels()
+        m.guideScreen.callFunc("refreshGuide")
     end if
 end sub
 

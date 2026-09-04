@@ -16,14 +16,16 @@ sub doStart()
     base = m.top.serverUrl
     chan = m.top.channelNumber
     codec = normalizeCodec(m.top.codec)
+    profile = m.top.profile
+    if profile = invalid or profile = "" then profile = "medium"
 
     if base = invalid or base = "" or chan = invalid or chan = ""
         m.top.result = { state: "failed", error: "Missing server URL or channel number" }
         return
     end if
 
-    startUrl = base + "/stream/" + chan + "/" + codec + "/start"
-    readyUrl = base + "/stream/" + chan + "/" + codec + "/ready"
+    startUrl = base + "/stream/" + chan + "/" + codec + "/" + profile + "/start"
+    readyUrl = base + "/stream/" + chan + "/" + codec + "/" + profile + "/ready"
 
     ' Step 1: kick off the tuner/transcode. 202 Accepted with no body expected,
     ' but we treat any 2xx as success.
@@ -43,7 +45,8 @@ sub doStart()
     backoffStepMs = 250
     consecutivePollFailures = 0
     maxConsecutivePollFailures = 6
-    maxWaitMs = 30000
+    maxWaitMs = m.top.maxWaitMs
+    if maxWaitMs = invalid or maxWaitMs <= 0 then maxWaitMs = 30000
 
     stopwatch = CreateObject("roTimespan")
     stopwatch.Mark()

@@ -16,13 +16,8 @@ sub main()
 
     ' Best-effort "app resumed" detection.
     '
-    ' NOTE (uncertain / needs on-device verification): EnableAppFocusEvent and
-    ' EnableScreensaverExitedEvent deliver roDeviceInfoEvent messages on the
-    ' device info object's message port. We wire that to the same port as the
-    ' screen so a single wait() loop sees everything. We do NOT try to
-    ' distinguish "focus gained" vs "focus lost" or inspect the event payload
-    ' precisely - we treat receipt of ANY such event as a hint to refresh the
-    ' guide. Worst case this causes one extra harmless /api/guide fetch.
+    ' Refresh only for focus-gain or screensaver-exit events; backgrounding
+    ' must not trigger a guide fetch and render.
     ' The 5-minute GuideScreen timer is the reliable primary refresh
     ' mechanism; this is just a best-effort improvement for accuracy.
     deviceInfo = CreateObject("roDeviceInfo")
@@ -39,7 +34,9 @@ sub main()
                 return
             end if
         else if msgType = "roDeviceInfoEvent"
-            if scene <> invalid
+            param = ""
+            if msg.GetMessageParam() <> invalid then param = LCase(msg.GetMessageParam().ToStr())
+            if scene <> invalid and (param = "active" or param = "screensaver_exited")
                 scene.callFunc("onSystemResumeSignal")
             end if
         end if

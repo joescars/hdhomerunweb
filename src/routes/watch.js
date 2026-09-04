@@ -115,6 +115,18 @@ function heartbeat(req, res) {
   res.status(204).end();
 }
 
+function stopSession(req, res) {
+  const parsed = parseStreamRequest(req);
+  if (!parsed) return res.status(400).send('Invalid request');
+
+  const session = stream.getSessionInfo(parsed.channel, parsed.codec, parsed.profile);
+  // Do not let a delayed teardown kill a newer same-key session.
+  if (session && session.ageMs >= 2_000) {
+    stream.stopSession(parsed.channel, parsed.codec, parsed.profile, 'client_stop');
+  }
+  return res.status(204).end();
+}
+
 async function streamFile(req, res) {
   const parsed = parseStreamRequest(req, true);
   if (!parsed) return res.status(400).send('Invalid request');
@@ -195,6 +207,8 @@ router.get('/stream/:channel/:codec/ready', readyState);
 router.get('/stream/:channel/:codec/:profile/ready', readyState);
 router.post('/stream/:channel/:codec/heartbeat', heartbeat);
 router.post('/stream/:channel/:codec/:profile/heartbeat', heartbeat);
+router.post('/stream/:channel/:codec/stop', stopSession);
+router.post('/stream/:channel/:codec/:profile/stop', stopSession);
 router.get('/stream/:channel/:codec/:file', streamFile);
 router.get('/stream/:channel/:codec/:profile/:file', streamFile);
 
