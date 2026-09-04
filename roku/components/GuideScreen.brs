@@ -97,6 +97,7 @@ sub onGuideResult(event as object)
         return
     end if
 
+    firstLoad = not m.hasLoadedOnce
     hideStatus()
     m.hasLoadedOnce = true
 
@@ -113,6 +114,9 @@ sub onGuideResult(event as object)
     m.thirdTimeLabel.text = formatGuideTime(slotStart + 3600)
 
     m.allChannels = result.channels
+    if firstLoad and m.recentChannels <> invalid and m.recentChannels.Count() > 0
+        m.restoreFocusedChannelNumber = m.recentChannels[0]
+    end if
     applyCurrentFilter()
 
     if m.hasLoadedOnce and m.filterMode = "favorites"
@@ -299,7 +303,7 @@ end function
 function buildGuideRow(ch as object) as object
     isRecent = isRecentChannel(ch.number)
 
-    rowSignature = ch.number.ToStr() + "|" + ch.firstTitle + "|" + ch.secondTitle + "|" + ch.thirdTitle + "|" + ch.detailsTitle + "|" + ch.synopsis + "|" + ch.nextTitle + "|" + isRecent.ToStr() + "|" + ch.currentImage
+    rowSignature = ch.number.ToStr() + "|" + ch.firstTitle + "|" + ch.secondTitle + "|" + ch.thirdTitle + "|" + ch.detailsTitle + "|" + ch.synopsis + "|" + ch.nextTitle + "|" + ch.favorite.ToStr() + "|" + isRecent.ToStr() + "|" + ch.currentImage + "|" + ch.currentTitle + "|" + ch.currentSynopsis + "|" + ch.currentStart.ToStr() + "|" + ch.currentDuration.ToStr()
 
     return {
         ChannelNumber: ch.number
@@ -315,6 +319,10 @@ function buildGuideRow(ch as object) as object
         Synopsis: ch.synopsis
         NextTitle: ch.nextTitle
         CurrentImage: ch.currentImage
+        CurrentTitle: ch.currentTitle
+        CurrentSynopsis: ch.currentSynopsis
+        CurrentStart: ch.currentStart
+        CurrentDuration: ch.currentDuration
         RowSignature: rowSignature
     }
 end function
@@ -332,6 +340,10 @@ sub patchGuideRowNode(node as object, row as object)
     node.Synopsis = row.Synopsis
     node.NextTitle = row.NextTitle
     node.CurrentImage = row.CurrentImage
+    node.CurrentTitle = row.CurrentTitle
+    node.CurrentSynopsis = row.CurrentSynopsis
+    node.CurrentStart = row.CurrentStart
+    node.CurrentDuration = row.CurrentDuration
     node.RowSignature = row.RowSignature
 end sub
 
@@ -359,35 +371,6 @@ function findChannelIndex(channelNumber as dynamic) as integer
         if chNode <> invalid and chNode.ChannelNumber = channelNumber then return i
     end for
     return -1
-end function
-
-function findProgramAt(programs as object, timestamp as integer) as object
-    for each program in programs
-        if program.start <= timestamp and program.start + program.duration > timestamp
-            return {
-                title: program.title
-                episodeTitle: program.episodeTitle
-                synopsis: program.synopsis
-                image: program.image
-            }
-        end if
-    end for
-    return { title: "", episodeTitle: "", synopsis: "", image: "" }
-end function
-
-' Programs are contiguous (no gaps - see src/routes/api.js), so "next" is
-' just the soonest program starting after timestamp.
-function findNextProgramAt(programs as object, timestamp as integer) as object
-    best = invalid
-    for each program in programs
-        if program.start > timestamp
-            if best = invalid or program.start < best.start
-                best = program
-            end if
-        end if
-    end for
-    if best = invalid then return { title: "", episodeTitle: "", synopsis: "" }
-    return { title: best.title, episodeTitle: best.episodeTitle, synopsis: best.synopsis }
 end function
 
 function formatGuideTime(epochSeconds as integer) as string
@@ -441,8 +424,12 @@ sub tuneToChannelIndex(chIdx as integer)
                 channelNumber: c.ChannelNumber
                 channelName: c.ChannelName
                 streamPath: c.StreamPath
-                currentTitle: c.DetailsTitle
-                currentSynopsis: c.Synopsis
+                channelLogo: c.LogoUri
+                favorite: c.Favorite
+                currentTitle: c.CurrentTitle
+                currentSynopsis: c.CurrentSynopsis
+                currentStart: c.CurrentStart
+                currentDuration: c.CurrentDuration
                 nextTitle: c.NextTitle
             })
         end if
@@ -452,9 +439,12 @@ sub tuneToChannelIndex(chIdx as integer)
         channelNumber: chNode.ChannelNumber
         channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
-        currentTitle: chNode.DetailsTitle
-        currentSynopsis: chNode.Synopsis
+        currentTitle: chNode.CurrentTitle
+        currentSynopsis: chNode.CurrentSynopsis
+        currentStart: chNode.CurrentStart
+        currentDuration: chNode.CurrentDuration
         nextTitle: chNode.NextTitle
+        channelLogo: chNode.LogoUri
         channels: channels
     }
 end sub
@@ -616,6 +606,10 @@ end sub
 ' --- key handling ---------------------------------------------------------
 
 function onKeyEvent(key as string, press as boolean) as boolean
+    if press and key = "OK" and not m.hasLoadedOnce
+        refreshGuide()
+        return true
+    end if
     if press and key = "options"
         stopPreview()
         m.top.openSettings = true
@@ -634,7 +628,23 @@ function onKeyEvent(key as string, press as boolean) as boolean
         setFilterMode("favorites")
         return true
     end if
+    if press and key = "replay"
+        jumpGuideBy(-10)
+        return true
+    end if
     ' "back" is intentionally left unhandled here so the OS can exit the
     ' channel when the user backs out of the root guide screen.
     return false
 end function
+
+sub jumpGuideBy(delta as integer)
+    count = getGuideChildCount()
+    if count <= 0 then return
+    index = m.lastFocusedIndex + delta
+    if index < 0 then index = 0
+    if index >= count then index = count - 1
+    m.lastFocusedIndex = index
+    m.guideGrid.jumpToItem = index
+    updateFocusedDetails(index)
+    updatePreviewThumbnail(index)
+end sub

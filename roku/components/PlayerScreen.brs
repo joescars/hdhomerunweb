@@ -14,6 +14,8 @@ sub init()
     m.channelInfoOverlay = m.top.findNode("channelInfoOverlay")
     m.infoChannelLabel = m.top.findNode("infoChannelLabel")
     m.infoNowLabel = m.top.findNode("infoNowLabel")
+    m.infoNextLabel = m.top.findNode("infoNextLabel")
+    m.infoLogo = m.top.findNode("infoLogo")
     m.infoDescriptionLabel = m.top.findNode("infoDescriptionLabel")
     m.recordingIndicator = m.top.findNode("recordingIndicator")
     m.infoHideTimer = m.top.findNode("infoHideTimer")
@@ -26,6 +28,7 @@ sub init()
     m.currentIndex = invalid
     m.failed = false
     m.recordTask = invalid
+    m.favoriteTask = invalid
     m.recordingScheduled = false
 
     m.video.observeField("state", "onVideoStateChange")
@@ -130,6 +133,12 @@ sub changeChannelBy(delta as integer)
     m.top.streamPath = buildStreamPath(ch.channelNumber)
     m.top.currentTitle = ch.currentTitle
     m.top.currentSynopsis = ch.currentSynopsis
+    m.top.currentStart = ch.currentStart
+    m.top.currentDuration = ch.currentDuration
+    m.top.currentStart = ch.currentStart
+    m.top.channelLogo = ch.channelLogo
+    m.top.currentDuration = ch.currentDuration
+    m.top.channelLogo = ch.channelLogo
     m.top.nextTitle = ch.nextTitle
     m.recordingScheduled = false
     updateRecordingIndicator()
@@ -145,6 +154,7 @@ sub changeChannelBy(delta as integer)
     hideStatsPanel()
     m.failed = false
     startTuning()
+    showChannelInfo()
 end sub
 
 sub onStreamStartResult(event as object)
@@ -259,11 +269,25 @@ sub showChannelInfo()
 
     channelText = m.top.channelNumber.ToStr() + "  " + m.top.channelName
     m.infoChannelLabel.text = channelText
+    if m.infoLogo <> invalid
+        m.infoLogo.uri = m.top.channelLogo
+        m.infoLogo.visible = (m.top.channelLogo <> invalid and m.top.channelLogo <> "")
+    end if
 
     title = ""
     if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then title = m.top.currentTitle
     if title = "" then title = "(no program info)"
+    endText = formatProgramEndTime(m.top.currentStart, m.top.currentDuration)
+    if endText <> "" then title = title + "  ·  ends " + endText
     m.infoNowLabel.text = title
+
+    nextTitle = m.top.nextTitle
+    if nextTitle <> invalid and nextTitle <> ""
+        m.infoNextLabel.text = "Next: " + nextTitle
+        m.infoNextLabel.visible = true
+    else
+        m.infoNextLabel.visible = false
+    end if
 
     synopsis = ""
     if m.top.currentSynopsis <> invalid then synopsis = m.top.currentSynopsis
@@ -276,6 +300,23 @@ sub showChannelInfo()
     m.infoHideTimer.control = "start"
 end sub
 
+function formatProgramEndTime(startTime as dynamic, duration as dynamic) as string
+    if startTime = invalid or duration = invalid then return ""
+    endTime = startTime + duration
+    if endTime <= 0 then return ""
+    time = CreateObject("roDateTime")
+    time.FromSeconds(endTime)
+    hour = time.GetHours()
+    minute = time.GetMinutes()
+    suffix = "AM"
+    if hour >= 12 then suffix = "PM"
+    displayHour = hour Mod 12
+    if displayHour = 0 then displayHour = 12
+    minuteText = minute.ToStr()
+    if minute < 10 then minuteText = "0" + minuteText
+    return displayHour.ToStr() + ":" + minuteText + " " + suffix
+end function
+
 sub hideChannelInfo()
     m.channelInfoOverlay.visible = false
     m.infoHideTimer.control = "stop"
@@ -283,6 +324,12 @@ end sub
 
 sub onInfoHideTimerFire(event as object)
     hideChannelInfo()
+end sub
+
+' The remote Options key continues to show the program banner. The literal
+    end if
+
+    showRecordingNotice("Could not update favorite")
 end sub
 
 ' Bound to both OK and the * (Options) button during normal playback -
@@ -517,16 +564,24 @@ end sub
 ' --- key handling / teardown --------------------------------------------
 
 function onKeyEvent(key as string, press as boolean) as boolean
-    if press and key = "up"
-        toggleStatsPanel()
-        return true
-    end if
     if press and key = "options"
-        toggleChannelInfo()
+        if m.channelInfoOverlay.visible = true
+            toggleFavorite()
+        else
+            showChannelInfo()
+        end if
         return true
     end if
     if press and key = "down"
         recordCurrentAiring()
+        return true
+    end if
+    if press and key = "star"
+        toggleFavorite()
+        return true
+    end if
+    if press and key = "play"
+        toggleFavorite()
         return true
     end if
     if press and key = "rewind"
@@ -591,9 +646,61 @@ sub showRecordingNotice(message as string)
     m.infoChannelLabel.text = "DVR"
     m.infoNowLabel.text = message
     m.infoDescriptionLabel.visible = false
+    m.infoNextLabel.visible = false
+    if m.infoLogo <> invalid then m.infoLogo.visible = false
     m.channelInfoOverlay.visible = true
     m.infoHideTimer.control = "stop"
     m.infoHideTimer.control = "start"
+end sub
+
+sub toggleFavorite()
+    if m.favoriteTask <> invalid
+        showRecordingNotice("Updating favorite...")
+        return
+    end if
+    if m.currentIndex = invalid or m.channels = invalid then return
+
+    ch = m.channels[m.currentIndex]
+    desired = not (ch.favorite = true)
+    ch.favorite = desired
+    m.channels[m.currentIndex] = ch
+
+    task = CreateObject("roSGNode", "FavoriteTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = m.top.channelNumber.ToStr()
+    task.favorite = desired
+    task.observeField("result", "onFavoriteResult")
+    m.favoriteTask = task
+    task.control = "RUN"
+
+    if desired
+        showRecordingNotice("Added to Favorites")
+    else
+        showRecordingNotice("Removed from Favorites")
+    end if
+end sub
+
+sub onFavoriteResult(event as object)
+    result = event.getData()
+    m.favoriteTask = invalid
+    if result <> invalid and result.success = true
+        if m.currentIndex <> invalid and m.channels <> invalid
+            ch = m.channels[m.currentIndex]
+            ch.favorite = result.favorite
+            m.channels[m.currentIndex] = ch
+        end if
+        showChannelInfo()
+        return
+    end if
+
+    ' Restore the local value on failure; the next guide refresh will also
+    ' reconcile it from the tuner.
+    if m.currentIndex <> invalid and m.channels <> invalid
+        ch = m.channels[m.currentIndex]
+        ch.favorite = not (ch.favorite = true)
+        m.channels[m.currentIndex] = ch
+    end if
+    showRecordingNotice("Could not update favorite")
 end sub
 
 sub closePlayer()

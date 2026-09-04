@@ -73,7 +73,7 @@
                 height="70"
                 font="font:SmallSystemFont"
                 wrap="true"
-                text="Press OK to edit the server URL."
+                text="Press OK to edit the server URL. Use an http:// or https:// address with a server host."
                 color="0x9CB0C4FF" />
 
             <Label

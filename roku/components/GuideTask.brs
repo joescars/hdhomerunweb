@@ -44,6 +44,8 @@ sub doFetch()
             return
         end if
         first = slots[0]
+        current = ch.current
+        if current = invalid then current = first
         channels.Push({
             number: ch.number
             name: ch.name
@@ -55,7 +57,11 @@ sub doFetch()
             detailsTitle: formatDetailsTitle(first)
             synopsis: first.synopsis
             nextTitle: ch.nextTitle
-            currentImage: first.image
+            currentImage: current.image
+            currentTitle: formatDetailsTitle(current)
+            currentSynopsis: current.synopsis
+            currentStart: current.start
+            currentDuration: current.duration
         })
     end for
 

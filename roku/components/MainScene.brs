@@ -256,6 +256,12 @@ sub onLaunchPlayer(event as object)
     screen.channels = data.channels
     screen.currentTitle = data.currentTitle
     screen.currentSynopsis = data.currentSynopsis
+    screen.currentStart = data.currentStart
+    screen.currentDuration = data.currentDuration
+    screen.currentStart = data.currentStart
+    screen.channelLogo = data.channelLogo
+    screen.currentDuration = data.currentDuration
+    screen.channelLogo = data.channelLogo
     screen.nextTitle = data.nextTitle
     screen.observeField("closed", "onPlayerClosed")
     pushScreen(screen)

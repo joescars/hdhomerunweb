@@ -29,12 +29,32 @@ function buildPrograms(channel) {
 
 function programAt(programs, timestamp) {
   return programs.find((program) => program.start <= timestamp && program.start + program.duration > timestamp)
-    || { title: '', episodeTitle: '', synopsis: '', image: '' };
+    || {
+      title: '', start: 0, duration: 0, episodeTitle: '', synopsis: '', image: '',
+    };
 }
 
 function nextProgramAt(programs, timestamp) {
   return programs.find((program) => program.start > timestamp) || { title: '' };
 }
+
+router.post('/api/channels/:guideNumber/favorite', async (req, res) => {
+  const guideNumber = req.params.guideNumber;
+  const favorite = req.query.favorite === '1';
+
+  if (!/^[0-9]+(?:\.[0-9]+)?$/.test(guideNumber)) {
+    return res.status(400).json({ error: 'Invalid channel number' });
+  }
+
+  try {
+    await hdhr.setChannelFlag(guideNumber, favorite ? '+' : '-');
+    cache.clear('guide:duration:4');
+    cache.clear(`guide:roku:duration:4:${Math.floor(Date.now() / 1800) * 1800}`);
+    res.json({ guideNumber, favorite: Boolean(favorite) });
+  } catch (err) {
+    res.status(502).json({ error: err.message });
+  }
+});
 
 router.get('/api/guide', async (req, res) => {
   res.set('Cache-Control', 'private, max-age=15, stale-while-revalidate=30');
@@ -84,6 +104,7 @@ router.get('/api/guide', async (req, res) => {
     };
     if (slim) {
       channel.slots = [0, 1800, 3600].map((offset) => programAt(programs, slotStart + offset));
+      channel.current = programAt(programs, serverTime);
       channel.nextTitle = nextProgramAt(programs, serverTime).title;
     } else {
       channel.streamPath = `/stream/${ch.GuideNumber}/hevc/stream.m3u8`;

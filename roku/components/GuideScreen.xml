@@ -13,7 +13,7 @@
              no-op that never fires onChange, leaving the screen's internal
              state stuck at init()'s default (true) instead. -->
         <field id="livePreviewEnabled" type="boolean" alwaysNotify="true" onChange="onLivePreviewEnabledChange" />
-        <!-- out: { channelNumber, channelName, streamPath } - fires when the user selects a channel/program -->
+        <!-- out: selected channel plus current/next program metadata for playback -->
         <field id="launchPlayer" type="assocarray" alwaysNotify="true" />
         <!-- out: fires when the user presses the Options remote button -->
         <field id="openSettings" type="boolean" alwaysNotify="true" />

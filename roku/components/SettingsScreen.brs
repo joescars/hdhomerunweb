@@ -152,19 +152,19 @@ end sub
 
 sub onKeyboardButtonSelected(event as object)
     idx = event.getData()
-    dialog = m.keyboardDialog
 
-    if idx = 0 ' "OK"
-        newUrl = dialog.text
-        if newUrl <> invalid and newUrl <> ""
-            newUrl = trimTrailingSlash(newUrl)
             saveServerUrl(newUrl)
             m.top.serverUrl = newUrl
             updateUrlLabel()
             m.top.saved = newUrl
             runConnectivityCheck(newUrl)
+                m.top.saved = newUrl
+                runConnectivityCheck(newUrl)
+            else
+                setStatus(validationError)
+            end if
         else
-            setStatus("URL cannot be empty")
+            setStatus(validationError)
         end if
     else
         setStatus("Edit canceled")
@@ -173,6 +173,27 @@ sub onKeyboardButtonSelected(event as object)
     dialog.close = true
     m.keyboardDialog = invalid
 end sub
+
+' Require an HTTP(S) URL with a host before persisting it. This catches the
+' common typos synchronously rather than waiting for the background probe.
+function validateServerUrl(url as dynamic) as string
+    if url = invalid then return "URL cannot be empty"
+    value = url.Trim()
+    if value = "" then return "URL cannot be empty"
+    if Instr(1, value, " ") > 0 or Instr(1, value, Chr(34)) > 0 or Instr(1, value, "'") > 0
+        return "URL cannot contain spaces or quotes"
+    end if
+    lower = LCase(value)
+    if Left(lower, 7) <> "http://" and Left(lower, 8) <> "https://"
+        return "URL must start with http:// or https://"
+    end if
+    schemeEnd = Instr(1, value, "://")
+    hostStart = schemeEnd + 3
+    if Len(value) <= hostStart - 1 or Mid(value, hostStart, 1) = "/"
+        return "URL must include a server host"
+    end if
+    return ""
+end function
 
 function trimTrailingSlash(url as string) as string
     if Right(url, 1) = "/"
