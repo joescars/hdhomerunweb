@@ -326,12 +326,6 @@ sub onInfoHideTimerFire(event as object)
     hideChannelInfo()
 end sub
 
-' The remote Options key continues to show the program banner. The literal
-    end if
-
-    showRecordingNotice("Could not update favorite")
-end sub
-
 ' Bound to both OK and the * (Options) button during normal playback -
 ' OK is the more natural "what am I watching" button for most users, kept
 ' Options bound too since it was already documented/expected there.

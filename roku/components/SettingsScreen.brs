@@ -152,17 +152,18 @@ end sub
 
 sub onKeyboardButtonSelected(event as object)
     idx = event.getData()
+    dialog = m.keyboardDialog
 
+    if idx = 0 ' "OK"
+        newUrl = dialog.text
+        validationError = validateServerUrl(newUrl)
+        if validationError = ""
+            newUrl = trimTrailingSlash(newUrl.Trim())
             saveServerUrl(newUrl)
             m.top.serverUrl = newUrl
             updateUrlLabel()
             m.top.saved = newUrl
             runConnectivityCheck(newUrl)
-                m.top.saved = newUrl
-                runConnectivityCheck(newUrl)
-            else
-                setStatus(validationError)
-            end if
         else
             setStatus(validationError)
         end if
