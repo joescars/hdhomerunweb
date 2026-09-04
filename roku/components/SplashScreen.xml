@@ -15,6 +15,12 @@
     </interface>
 
     <children>
+        <Poster
+            translation="[0, 0]"
+            width="1920"
+            height="1080"
+            uri="pkg:/images/splash_bg_screen.jpg" />
+
         <Label
             id="loadingLabel"
             translation="[960, 984]"
