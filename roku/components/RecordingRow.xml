@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="RecordingRow" extends="Group">
+    <interface>
+        <field id="itemContent" type="node" onChange="onContentChange" />
+        <field id="focusPercent" type="float" onChange="onFocusChange" />
+    </interface>
+    <children>
+        <Rectangle id="bg" width="1750" height="76" color="0x142238FF" />
+        <Label id="titleLabel" translation="[24, 8]" width="1700" height="30" font="font:MediumBoldSystemFont" color="0xFFFFFFFF" />
+        <Label id="subtitleLabel" translation="[24, 42]" width="1700" height="24" font="font:SmallSystemFont" color="0x9CB0C4FF" />
+    </children>
+    <script type="text/brightscript" uri="RecordingRow.brs" />
+</component>

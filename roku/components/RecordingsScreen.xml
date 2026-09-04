@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="RecordingsScreen" extends="Group">
+    <interface>
+        <field id="serverUrl" type="string" />
+        <field id="openRecording" type="assocarray" alwaysNotify="true" />
+        <field id="closed" type="boolean" alwaysNotify="true" />
+        <function name="onScreenFocus" />
+    </interface>
+    <children>
+        <Timer id="refreshTimer" repeat="true" duration="15" />
+        <Rectangle width="1920" height="1080" color="0x0A1428FF" />
+        <Label translation="[85, 55]" width="1750" height="70" text="DVR Recordings" font="font:LargeBoldSystemFont" color="0xFFFFFFFF" />
+        <Label id="hint" translation="[85, 130]" width="1750" height="40" text="OK: play   *: stop active (discards partial) / delete   Back: guide" font="font:SmallSystemFont" color="0x9CB0C4FF" />
+        <MarkupList id="list" translation="[85, 190]" itemComponentName="RecordingRow" itemSize="[1750, 86]" numRows="9" focusBitmapUri="" />
+        <Label id="status" translation="[85, 950]" width="1750" height="50" font="font:MediumSystemFont" color="0x38BDF8FF" />
+    </children>
+    <script type="text/brightscript" uri="RecordingsScreen.brs" />
+</component>

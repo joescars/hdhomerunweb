@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented in this file.
 
+## 2026-09-01
+
+### Added: Roku DVR browsing, playback, scheduling, and active recording control
+
+- Added Roku DVR navigation from the guide's Play key, with background Task
+  nodes for listing recordings, starting recorded HLS playback, and recording
+  the current live airing from the Down key.
+- Added JSON recording list/delete/stop endpoints for the Roku client while
+  preserving the existing browser HTML routes.
+- Active recordings are labeled `RECORDING NOW` and refresh in the Roku list
+  every 15 seconds. Options deletes completed recordings; for an active item it
+  removes the matching one-time recording rule and the partial file to stop the
+  RECORD engine capture.
+- Added Roku HLS playback for completed recordings using the existing server
+  recording stream start/poll handshake.
+- Live playback now shows an immediate scheduling notice and a red `REC` badge
+  in the bottom info bar after the current airing is queued for recording.
+
 ## 2026-08-30
 
 ### Added: "Record this airing" button, integrating with a separately-run HDHomeRun RECORD engine

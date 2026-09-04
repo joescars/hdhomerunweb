@@ -26,10 +26,13 @@ This repo also includes a sideloadable [Roku client](roku/) for watching live TV
 
 - **Roku client** (`roku/`) — a sideloadable Roku app that talks to this same server:
   - Live channel preview in the guide (a small tuned thumbnail as you browse rows, debounced so it doesn't tune every channel you scroll past; shows the current program's artwork while loading or if you turn preview off, instead of a black box). Can be disabled entirely in Settings for systems with few tuners.
-  - Recently-watched channels pinned to the top of the guide.
-  - A now/next info overlay during playback (press OK or `*`/Options) showing what's on and what's up next.
-  - Closed captions.
-  - Three codec/streaming modes, switchable in Settings: `h264`/`hevc` transcode (same QSV pipeline as the browser client) or an experimental no-transcode **Direct** mode (`-c copy` remux) — Direct is also currently the only mode that plays ATSC 3.0 (NextGen TV, HEVC Main10 + AC-4) channels; the transcode modes don't support ATSC 3.0 sources yet.
+  - Recently watched channels are pinned to the top without losing the currently focused guide row when the list reorders.
+  - A playback info bar (press OK or `*`/Options) showing the channel, current program, and synopsis; use Rewind/Fast Forward to surf the visible guide channels.
+  - Closed captions in the default H.264 mode, plus a diagnostics overlay (Up) with stream, ffmpeg, and tuner telemetry.
+  - Three persistent streaming modes in Settings: **H.264** (the default, broadly compatible, and caption-capable), **HEVC/H.265** (more efficient but without captions), and experimental **Direct** (`-c copy`, no transcode). Direct is the current workaround for ATSC 3.0/NextGen TV sources; playback, especially AC-4 audio, remains device-dependent.
+  - A debounced live preview is enabled by default; it uses a tuner while active and can be turned off in Settings for systems with few tuners.
+  - DVR integration: press Play in the guide to browse and play recordings. Active captures are marked `RECORDING NOW` and refresh every 15 seconds; Options deletes completed recordings or stops an active capture (discarding its partial file).
+  - Press Down during live playback to schedule the current airing through the optional HDHomeRun RECORD engine. A confirmation and `REC` badge appear in the playback info bar after it is queued.
 
   See [roku/README.md](roku/README.md) for setup and sideloading instructions.
 
@@ -78,8 +81,8 @@ cp .env.example .env
 | `HDHOMERUN_HOST`  | —                | **Use your device's LAN IP, not its `.local` mDNS name.** Containers on the default Docker bridge network can't resolve mDNS names. |
 | `HDHOMERUN_PORT`  | `80`             | HDHomeRun's HTTP port.                                                |
 | `PORT`            | `8080`           | Port the web app listens on inside the container.                    |
-| `STREAM_DECODE_MODE` | `qsv`         | Decode mode for live transcode input: `qsv` (default) or `sw` (software decode + hardware encode). Useful for CC A/B testing. |
-| `WEBVTT_SIDECAR_MODE` | `on`         | Enables experimental WebVTT sidecar extraction for browser captions. Set `off` to disable sidecar track generation. |
+| `STREAM_DECODE_MODE` | `sw`          | Decode mode for live transcode input: `sw` (default; preserves embedded closed captions while retaining QSV encoding) or `qsv` (lower CPU use, but no embedded captions). |
+| `WEBVTT_SIDECAR_MODE` | `off`        | Enables experimental WebVTT sidecar extraction. It is off by default because of an upstream ffmpeg bug that can produce an empty sidecar. |
 | `SOURCE_CAPTION_PROBE` | `off`       | Enables raw-input ffprobe caption probing in diagnostics. Keep `off` unless actively debugging caption ingest. |
 | `RECORD_ENGINE_HOST` | —          | Optional. LAN IP/hostname of a separately-run [HDHomeRun RECORD](https://info.hdhomerun.com/info/dvr) engine — enables recording, browsing, playback, and deletion at `/recordings`. Leave unset to disable DVR controls. Must be a LAN address, not `localhost`, even if the engine runs on the same machine — same reasoning as `HDHOMERUN_HOST` above. |
 | `RECORD_ENGINE_PORT` | `37899`     | Port the RECORD engine's local HTTP API listens on. |
@@ -98,14 +101,15 @@ If you hit issues (stream never starts, or `docker compose logs` shows VAAPI/QSV
 
 ### Closed captions (browser)
 
-Browser CC currently uses an experimental WebVTT sidecar path generated per
-active stream session.
+Browser H.264 streams carry embedded CEA-608 captions when
+`STREAM_DECODE_MODE=sw` (the Compose default). Encoding remains hardware
+accelerated with QSV; only decoding uses software. Full QSV decode does not
+preserve the A/53 caption data required by the encoder.
 
-- Keep `WEBVTT_SIDECAR_MODE=on` to expose a browser caption track.
-- If captions are not appearing, test with `STREAM_DECODE_MODE=sw` for
-  comparison while keeping hardware encode enabled.
-- Use `SOURCE_CAPTION_PROBE=on` only when you need raw input-vs-output caption
-  diagnostics; it is intentionally off by default to reduce noise.
+`WEBVTT_SIDECAR_MODE=on` enables an experimental alternate WebVTT extraction
+path, but it is off by default because an unresolved ffmpeg issue can drop all
+cues and produce an empty track. Use `SOURCE_CAPTION_PROBE=on` only for raw
+input/output caption diagnostics.
 
 ## Local development (without Docker)
 
@@ -137,6 +141,6 @@ useful for any other client):
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/guide` | Channels with now/next programs, pre-shaped for a TV guide: non-overlapping program times, unsubscribed/hidden channels filtered out, no null fields. |
-| `POST /stream/<ch>/start` | Begin tuning + transcoding a channel (returns 202 immediately). |
-| `GET /stream/<ch>/ready` | `{"ready":bool,"failed":bool,"error":"..."}` — poll until ready. |
-| `GET /stream/<ch>/stream.m3u8` | The HLS playlist, once ready. |
+| `POST /stream/<ch>/<codec>[/<profile>]/start` | Begin tuning/transcoding a channel (returns 202 immediately). `codec` is `h264`, `hevc`, or `direct`; `profile` is `low`, `medium` (default), or `high`. Browsers use H.264; HEVC and Direct are Roku options. |
+| `GET /stream/<ch>/<codec>[/<profile>]/ready` | `{"ready":bool,"failed":bool,"error":"..."}` — poll until ready. |
+| `GET /stream/<ch>/<codec>[/<profile>]/stream.m3u8` | The HLS playlist, once ready. |

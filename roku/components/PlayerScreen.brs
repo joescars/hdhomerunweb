@@ -14,7 +14,8 @@ sub init()
     m.channelInfoOverlay = m.top.findNode("channelInfoOverlay")
     m.infoChannelLabel = m.top.findNode("infoChannelLabel")
     m.infoNowLabel = m.top.findNode("infoNowLabel")
-    m.infoNextLabel = m.top.findNode("infoNextLabel")
+    m.infoDescriptionLabel = m.top.findNode("infoDescriptionLabel")
+    m.recordingIndicator = m.top.findNode("recordingIndicator")
     m.infoHideTimer = m.top.findNode("infoHideTimer")
     m.tuningStarted = false
     m.statsVisible = false
@@ -24,6 +25,8 @@ sub init()
     m.channels = invalid
     m.currentIndex = invalid
     m.failed = false
+    m.recordTask = invalid
+    m.recordingScheduled = false
 
     m.video.observeField("state", "onVideoStateChange")
     m.statsTimer.observeField("fire", "onStatsTimerFire")
@@ -126,7 +129,10 @@ sub changeChannelBy(delta as integer)
     m.top.channelName = ch.channelName
     m.top.streamPath = buildStreamPath(ch.channelNumber)
     m.top.currentTitle = ch.currentTitle
+    m.top.currentSynopsis = ch.currentSynopsis
     m.top.nextTitle = ch.nextTitle
+    m.recordingScheduled = false
+    updateRecordingIndicator()
 
     if m.streamTask <> invalid
         m.streamTask.control = "STOP"
@@ -242,7 +248,7 @@ sub playStream()
     showChannelInfo()
 end sub
 
-' --- now/next info overlay ------------------------------------------------
+' --- program info overlay -------------------------------------------------
 
 ' Snapshot at tune time (from the guide's already-fetched EPG data), not
 ' live-updated while a program is playing - accurate whenever you tune or
@@ -254,21 +260,18 @@ sub showChannelInfo()
     channelText = m.top.channelNumber.ToStr() + "  " + m.top.channelName
     m.infoChannelLabel.text = channelText
 
-    nowText = ""
-    if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then nowText = m.top.currentTitle
-    if nowText = "" then nowText = "(no program info)"
-    m.infoNowLabel.text = "Now: " + nowText
+    title = ""
+    if m.top.currentTitle <> invalid and m.top.currentTitle <> "" then title = m.top.currentTitle
+    if title = "" then title = "(no program info)"
+    m.infoNowLabel.text = title
 
-    nextText = ""
-    if m.top.nextTitle <> invalid and m.top.nextTitle <> "" then nextText = m.top.nextTitle
-    if nextText <> ""
-        m.infoNextLabel.text = "Next: " + nextText
-        m.infoNextLabel.visible = true
-    else
-        m.infoNextLabel.visible = false
-    end if
+    synopsis = ""
+    if m.top.currentSynopsis <> invalid then synopsis = m.top.currentSynopsis
+    m.infoDescriptionLabel.text = synopsis
+    m.infoDescriptionLabel.visible = (synopsis <> "")
 
     m.channelInfoOverlay.visible = true
+    updateRecordingIndicator()
     m.infoHideTimer.control = "stop"
     m.infoHideTimer.control = "start"
 end sub
@@ -522,6 +525,10 @@ function onKeyEvent(key as string, press as boolean) as boolean
         toggleChannelInfo()
         return true
     end if
+    if press and key = "down"
+        recordCurrentAiring()
+        return true
+    end if
     if press and key = "rewind"
         changeChannelBy(-1)
         return true
@@ -544,6 +551,50 @@ function onKeyEvent(key as string, press as boolean) as boolean
     end if
     return false
 end function
+
+sub recordCurrentAiring()
+    if m.recordTask <> invalid
+        showRecordingNotice("Scheduling current airing...")
+        return
+    end if
+    if m.recordingScheduled = true
+        showRecordingNotice("Recording already scheduled")
+        return
+    end if
+    task = CreateObject("roSGNode", "RecordCurrentTask")
+    task.serverUrl = m.top.serverUrl
+    task.channelNumber = m.top.channelNumber
+    task.observeField("result", "onRecordResult")
+    m.recordTask = task
+    showRecordingNotice("Scheduling current airing...")
+    task.control = "RUN"
+end sub
+
+sub onRecordResult(event as object)
+    m.recordTask = invalid
+    result = event.getData()
+    if result <> invalid and result.success = true
+        m.recordingScheduled = true
+        updateRecordingIndicator()
+        showRecordingNotice("Recording scheduled")
+    else
+        showRecordingNotice("Could not schedule recording")
+    end if
+end sub
+
+sub updateRecordingIndicator()
+    if m.recordingIndicator = invalid then return
+    m.recordingIndicator.visible = (m.recordingScheduled = true)
+end sub
+
+sub showRecordingNotice(message as string)
+    m.infoChannelLabel.text = "DVR"
+    m.infoNowLabel.text = message
+    m.infoDescriptionLabel.visible = false
+    m.channelInfoOverlay.visible = true
+    m.infoHideTimer.control = "stop"
+    m.infoHideTimer.control = "start"
+end sub
 
 sub closePlayer()
     hideStatsPanel()

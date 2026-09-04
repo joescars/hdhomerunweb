@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="RecordingStreamTask" extends="Task">
+    <interface>
+        <field id="serverUrl" type="string" />
+        <field id="recordingId" type="string" />
+        <field id="result" type="assocarray" alwaysNotify="true" />
+    </interface>
+    <script type="text/brightscript" uri="Net.brs" />
+    <script type="text/brightscript" uri="RecordingStreamTask.brs" />
+</component>

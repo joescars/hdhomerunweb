@@ -20,6 +20,7 @@ sub init()
     m.hasLoadedOnce = false
     m.guideStarted = false
     m.lastFocusedIndex = 0
+    m.restoreFocusedChannelNumber = invalid
     m.filterMode = readFilterMode()
     m.allChannels = []
     m.recentChannels = []
@@ -133,7 +134,17 @@ sub applyCurrentFilter()
         return
     end if
 
-    focusIndex = m.lastFocusedIndex
+    restoreChannel = m.restoreFocusedChannelNumber
+    m.restoreFocusedChannelNumber = invalid
+    focusIndex = findChannelIndex(restoreChannel)
+    if focusIndex >= 0
+        ' Updating recent channels can reorder and replace the grid content.
+        ' Return the viewer to the channel they were browsing before playback.
+        m.lastFocusedIndex = focusIndex
+        m.guideGrid.jumpToItem = focusIndex
+    else
+        focusIndex = m.lastFocusedIndex
+    end if
     if focusIndex >= childCount then focusIndex = childCount - 1
     if focusIndex < 0 then focusIndex = 0
     updateFocusedDetails(focusIndex)
@@ -197,6 +208,8 @@ function isRecentChannel(channelNumber as dynamic) as boolean
 end function
 
 sub onRecentChannelsChange(event as object)
+    focusedChannel = getFocusedChannelNumber()
+    if focusedChannel <> invalid then m.restoreFocusedChannelNumber = focusedChannel
     m.recentChannels = event.getData()
     if m.recentChannels = invalid then m.recentChannels = []
     if m.hasLoadedOnce then applyCurrentFilter()
@@ -328,6 +341,54 @@ function getGuideChildCount() as integer
     return content.GetChildCount()
 end function
 
+function getFocusedChannelNumber() as dynamic
+    content = m.guideGrid.content
+    if content = invalid then return invalid
+    chNode = content.GetChild(m.lastFocusedIndex)
+    if chNode = invalid then return invalid
+    return chNode.ChannelNumber
+end function
+
+function findChannelIndex(channelNumber as dynamic) as integer
+    if channelNumber = invalid then return -1
+    content = m.guideGrid.content
+    if content = invalid then return -1
+
+    for i = 0 to content.GetChildCount() - 1
+        chNode = content.GetChild(i)
+        if chNode <> invalid and chNode.ChannelNumber = channelNumber then return i
+    end for
+    return -1
+end function
+
+function findProgramAt(programs as object, timestamp as integer) as object
+    for each program in programs
+        if program.start <= timestamp and program.start + program.duration > timestamp
+            return {
+                title: program.title
+                episodeTitle: program.episodeTitle
+                synopsis: program.synopsis
+                image: program.image
+            }
+        end if
+    end for
+    return { title: "", episodeTitle: "", synopsis: "", image: "" }
+end function
+
+' Programs are contiguous (no gaps - see src/routes/api.js), so "next" is
+' just the soonest program starting after timestamp.
+function findNextProgramAt(programs as object, timestamp as integer) as object
+    best = invalid
+    for each program in programs
+        if program.start > timestamp
+            if best = invalid or program.start < best.start
+                best = program
+            end if
+        end if
+    end for
+    if best = invalid then return { title: "", episodeTitle: "", synopsis: "" }
+    return { title: best.title, episodeTitle: best.episodeTitle, synopsis: best.synopsis }
+end function
 
 function formatGuideTime(epochSeconds as integer) as string
     time = CreateObject("roDateTime")
@@ -381,6 +442,7 @@ sub tuneToChannelIndex(chIdx as integer)
                 channelName: c.ChannelName
                 streamPath: c.StreamPath
                 currentTitle: c.DetailsTitle
+                currentSynopsis: c.Synopsis
                 nextTitle: c.NextTitle
             })
         end if
@@ -391,6 +453,7 @@ sub tuneToChannelIndex(chIdx as integer)
         channelName: chNode.ChannelName
         streamPath: chNode.StreamPath
         currentTitle: chNode.DetailsTitle
+        currentSynopsis: chNode.Synopsis
         nextTitle: chNode.NextTitle
         channels: channels
     }
@@ -556,6 +619,11 @@ function onKeyEvent(key as string, press as boolean) as boolean
     if press and key = "options"
         stopPreview()
         m.top.openSettings = true
+        return true
+    end if
+    if press and key = "play"
+        stopPreview()
+        m.top.openRecordings = true
         return true
     end if
     if press and key = "left"
