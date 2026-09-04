@@ -16,13 +16,13 @@ sub main()
 
     ' Best-effort "app resumed" detection.
     '
-    ' Refresh only for focus-gain or screensaver-exit events; backgrounding
-    ' must not trigger a guide fetch and render.
+    ' App-focus events cannot be safely distinguished as gain vs. loss across
+    ' supported firmware versions. Subscribe only to screensaver exit, which
+    ' is unambiguously a resume event and never fires while backgrounding.
     ' The 5-minute GuideScreen timer is the reliable primary refresh
     ' mechanism; this is just a best-effort improvement for accuracy.
     deviceInfo = CreateObject("roDeviceInfo")
     deviceInfo.SetMessagePort(port)
-    deviceInfo.EnableAppFocusEvent(true)
     deviceInfo.EnableScreensaverExitedEvent(true)
 
     while true
@@ -34,9 +34,7 @@ sub main()
                 return
             end if
         else if msgType = "roDeviceInfoEvent"
-            param = ""
-            if msg.GetMessageParam() <> invalid then param = LCase(msg.GetMessageParam().ToStr())
-            if scene <> invalid and (param = "active" or param = "screensaver_exited")
+            if scene <> invalid
                 scene.callFunc("onSystemResumeSignal")
             end if
         end if
