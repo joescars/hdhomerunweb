@@ -60,8 +60,11 @@
             color="0xAAAAAAFF"
             visible="false" />
 
-        <Group id="channelInfoOverlay" translation="[0, 780]" visible="false">
-            <Rectangle width="1920" height="300" color="0x0A1428E6" />
+        <!-- Keep the action row within the TV safe area. The former 300px
+             banner began at y=780, placing its hint at y=1050 with only 6px
+             of bottom clearance and overlapping the description. -->
+        <Group id="channelInfoOverlay" translation="[0, 730]" visible="false">
+            <Rectangle width="1920" height="350" color="0x0A1428E6" />
             <Rectangle width="1920" height="4" color="0x38BDF8FF" />
             <Poster id="infoLogo" translation="[60, 32]" width="180" height="120" loadDisplayMode="scaleToFit" />
             <Label id="infoChannelLabel"
@@ -85,7 +88,7 @@
             <Label id="infoDescriptionLabel"
                 translation="[270, 182]"
                 width="1500"
-                height="92"
+                height="82"
                 font="font:SmallSystemFont"
                 wrap="true"
                 color="0x9CB0C4FF" />
@@ -93,7 +96,15 @@
                 <Rectangle width="150" height="42" color="0xDC2626FF" />
                 <Label translation="[0, 0]" width="150" height="42" text="REC" font="font:MediumBoldSystemFont" horizAlign="center" vertAlign="center" color="0xFFFFFFFF" />
             </Group>
-            <Label id="favoriteHintLabel" translation="[60, 270]" width="800" height="24" font="font:SmallSystemFont" color="0x91A4B8FF" text="Play: Favorite / unfavorite    Down: Record" />
+            <Rectangle translation="[36, 284]" width="740" height="42" color="0x101D33FF" />
+            <Label id="favoriteHintLabel"
+                translation="[60, 290]"
+                width="692"
+                height="30"
+                font="font:SmallSystemFont"
+                vertAlign="center"
+                color="0xBFD2E6FF"
+                text="Play: Favorite / unfavorite    Down: Record" />
         </Group>
 
         <Timer id="infoHideTimer" duration="5" repeat="false" />
